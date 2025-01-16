@@ -1,6 +1,6 @@
 {
   "name": "unsure-lang",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Programming language",
   "homepage": "https://github.com/speedydelete/unsure#readme",
   "bugs": {
@@ -18,7 +18,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "webpack --mode production"
   },
-  "dependencies": {
+  "devDependencies": {
     "@babel/preset-env": "^7.26.0",
     "@babel/preset-typescript": "^7.26.0",
     "babel-loader": "^9.2.1",
