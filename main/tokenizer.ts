@@ -1,9 +1,9 @@
 
-const KEYWORDS = ['use', 'let', 'const'];
+export const KEYWORDS = ['use', 'let', 'const'];
 
 const OPERATORS_LEN_2 = ['==', '!=', '>=', '<='];
 const OPERATORS_LEN_1 = ['=', '>', '<', '+', '-', '*', '/', '%', '(', ')'];
-const OPERATORS = OPERATORS_LEN_1.concat(OPERATORS_LEN_2);
+export const OPERATORS = OPERATORS_LEN_1.concat(OPERATORS_LEN_2);
 
 const ID_START_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_';
 const ID_REGEX = /[a-zA-Z_][a-zA-Z_0-9]*/;
@@ -11,48 +11,48 @@ const ID_REGEX = /[a-zA-Z_][a-zA-Z_0-9]*/;
 const INT_LITERAL_START_CHARS = '0123456789-';
 const INT_LITERAL_REGEX = /-?[0-9]+/;
 
-type Keyword = typeof KEYWORDS[number];
-type Operator = typeof OPERATORS[number];
+export type Keyword = typeof KEYWORDS[number];
+export type Operator = typeof OPERATORS[number];
 
-type TokenType = 'Space' | 'Newline' | 'Keyword' | 'Operator' | 'IntLiteral' | 'Identifier';
+export type TokenType = 'Space' | 'Newline' | 'Keyword' | 'Operator' | 'IntLiteral' | 'Identifier';
 
-interface BaseToken {
+export interface BaseToken {
     type: TokenType;
     raw: string;
     char: number;
 }
 
-interface SpaceToken extends BaseToken {
+export interface SpaceToken extends BaseToken {
     type: 'Space';
 }
 
-interface NewlineToken extends BaseToken {
+export interface NewlineToken extends BaseToken {
     type: 'Newline';
 }
 
-interface KeywordToken extends BaseToken {
+export interface KeywordToken extends BaseToken {
     type: 'Keyword';
     value: Keyword;
 }
 
-interface OperatorToken extends BaseToken {
+export interface OperatorToken extends BaseToken {
     type: 'Operator';
     op: Operator;
 }
 
-interface IntLiteralToken extends BaseToken {
+export interface IntLiteralToken extends BaseToken {
     type: 'IntLiteral';
     value: number;
 }
 
-interface IdentifierToken extends BaseToken {
+export interface IdentifierToken extends BaseToken {
     type: 'Identifier';
     id: string;
 }
 
-type Token = SpaceToken | NewlineToken | KeywordToken | OperatorToken | IntLiteralToken | IdentifierToken;
+export type Token = SpaceToken | NewlineToken | KeywordToken | OperatorToken | IntLiteralToken | IdentifierToken;
 
-function tokenize(code: string): Token[] {
+export function tokenize(code: string): Token[] {
     let out: Token[] = [];
     let line = 1;
     let i = 0;

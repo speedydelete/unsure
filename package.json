@@ -1,0 +1,29 @@
+{
+  "name": "unsure-lang",
+  "version": "0.1.0",
+  "description": "Programming language",
+  "homepage": "https://github.com/speedydelete/unsure#readme",
+  "bugs": {
+    "url": "https://github.com/speedydelete/unsure/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/speedydelete/unsure.git"
+  },
+  "license": "MIT",
+  "author": "speedydelete",
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "webpack --mode production"
+  },
+  "dependencies": {
+    "@babel/preset-env": "^7.26.0",
+    "@babel/preset-typescript": "^7.26.0",
+    "babel-loader": "^9.2.1",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.0"
+  }
+}
