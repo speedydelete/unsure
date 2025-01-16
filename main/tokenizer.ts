@@ -107,9 +107,3 @@ function tokenize(code: string): Token[] {
     }
     return out;
 }
-
-let elt = document.createElement('pre');
-elt.textContent = JSON.stringify(tokenize('13 == 2'), undefined, 4);
-elt.style.paddingLeft = '15px';
-elt.style.fontSize = '14px';
-document.body.appendChild(elt);
