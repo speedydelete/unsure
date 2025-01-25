@@ -1,23 +1,19 @@
 
 import * as util from 'util';
-import type {Token, UnaryOpToken, OpToken, LeftParenToken, ExprToken} from './tokenizer';
-import {UNARY_OP_TOKEN_TYPES, BIN_OP_TOKEN_TYPES, EXPR_TOKEN_TYPES} from './tokenizer';
+import type {Token, UnaryOpToken, OpToken, LeftParenToken, IdentifierToken, LiteralToken, ExprToken} from './tokenizer';
+import {UNARY_OP_TOKEN_TYPES, BIN_OP_TOKEN_TYPES, EXPR_TOKEN_TYPES, LITERAL_TOKEN_TYPES, TOKEN_SYMBOLS} from './tokenizer';
 
 
 const UNARY_OPS = ['++', '--'];
 const BIN_OPS = ['*', '/', '+', '-'];
-const PRECENDENCE = [['++'], ['--'], ['*', '/'], ['+', '-']];
+const PRECEDENCE = [['++'], ['--'], ['*', '/'], ['+', '-']];
 
 
-export type NodeType = 'Program' | 'Literal' | 'BinOp';
+export type NodeType = 'Placeholder' | 'Program' | 'Identifier' | 'Literal' | 'UnaryOp' | 'BinOp';
 
 export class Node {
 
-    type: NodeType;
-
-    constructor(type: NodeType) {
-        this.type = type;
-    }
+    type: NodeType = 'Placeholder';
 
     [Symbol.toStringTag](): string {
         return 'Node';
@@ -43,16 +39,17 @@ function makeNodeSubclass<T extends Record<string, any>>(type: NodeType, props: 
     return out as unknown as {new(...args: {[K in keyof T]: T[K]}[keyof T][]): Node & T};
 }
 
+export const Placeholder = makeNodeSubclass<{}>('Placeholder', []);
 export const Program = makeNodeSubclass<{statements: Node[]}>('Program', ['statements']);
-export const Literal = makeNodeSubclass<{value: number}>('Literal', ['value']);
-export const UnaryOp = makeNodeSubclass<{op: typeof UNARY_OPS[number]}>('Literal', ['op']);
-export const BinOp = makeNodeSubclass<{op: typeof BIN_OPS[number]}>('BinOp', ['op']);
+export const Identifier = makeNodeSubclass<{name: string}>('Identifier', ['name']);
+export const Literal = makeNodeSubclass<{value: BigInt}>('Literal', ['value']);
+export const UnaryOp = makeNodeSubclass<{op: typeof UNARY_OPS[number], a: Node}>('UnaryOp', ['op', 'a']);
+export const BinOp = makeNodeSubclass<{op: typeof BIN_OPS[number], a: Node, b: Node}>('BinOp', ['op', 'a', 'b']);
 
 
 function precedence(op: OpToken): number {
-    for (let i = 0; i < PRECENDENCE.length; i++) {
-        const category = PRECENDENCE[i];
-        if (category.includes(op.type)) {
+    for (let i = 0; i < PRECEDENCE.length; i++) {
+        if (PRECEDENCE[i].includes(TOKEN_SYMBOLS.get(op.type))) {
             return i;
         }
     }
@@ -62,17 +59,18 @@ function shuntingYard(tokens: Token[]): Token[] {
     let output: ExprToken[] = [];
     let stack: (OpToken | LeftParenToken)[] = [];
     while (tokens.length > 0 && EXPR_TOKEN_TYPES.includes(tokens[0].type)) {
-        const token = tokens.splice(0, 1)[0];
-        if (token.type === 'IntLiteral') {
+        const token = tokens.shift()!;
+        if (token.type === 'Identifier' || token.type === 'IntLiteral') {
             output.push(token);
         } else if (UNARY_OP_TOKEN_TYPES.includes(token.type)) {
             stack.push(token as UnaryOpToken);
         } else if (BIN_OP_TOKEN_TYPES.includes(token.type)) {
             while (stack.length > 0) {
-                const token2 = stack[stack.length - 1];
-                if (token2.type === 'LeftParen' || precedence(token2) >= precedence(token as OpToken)) {
+                const top = stack[stack.length - 1];
+                if (top.type === 'LeftParen' || precedence(top) > precedence(token as OpToken)) {
                     break;
                 }
+                output.push(stack.pop())
             }
             stack.push(token as OpToken);
         } else if (token.type === 'LeftParen') {
@@ -97,15 +95,33 @@ function shuntingYard(tokens: Token[]): Token[] {
     return output;
 }
 
+function generateASTFromExpr(tokens: Token[]): Node {
+    const shunted = shuntingYard(tokens);
+    let stack: Node[] = [];
+    for (const token of shunted) {
+        if (token.type === 'Identifier') {
+            stack.push(new Identifier(token.name));
+        } else if (LITERAL_TOKEN_TYPES.includes(token.type)) {
+            stack.push(new Literal((token as LiteralToken).value));
+        } else if (UNARY_OP_TOKEN_TYPES.includes(token.type)) {
+            stack.push(new UnaryOp(TOKEN_SYMBOLS.get(token.type), stack.pop()));
+        } else if (BIN_OP_TOKEN_TYPES.includes(token.type)) {
+            const b = stack.pop();
+            const a = stack.pop();
+            stack.push(new BinOp(TOKEN_SYMBOLS.get(token.type), a, b));
+        }
+    }
+    return stack[0];
+}
+
 export function generateAST(tokens: Token[]): InstanceType<typeof Program> {
     tokens = tokens.filter(token => token.type !== 'Space' && token.type !== 'Newline');
-    let out = [new Program([new Program([new Program()])])];
+    let out: Node[] = [];
     while (tokens.length > 0) {
         const token = tokens[0];
         if (false) {
         } else if (EXPR_TOKEN_TYPES.includes(token.type)) {
-            const shunted = shuntingYard(tokens);
-            console.log(shunted);
+            out.push(generateASTFromExpr(tokens));
         } else {
             throw new SyntaxError(`unexpected token ${token.raw} at position ${token.pos}`);
         }

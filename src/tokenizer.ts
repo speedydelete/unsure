@@ -14,6 +14,7 @@ export const SYMBOL_TOKENS: Map<typeof SYMBOLS[number], TokenType> = new Map([
     ['+', 'AddOp'],
     ['-', 'SubOp'],
 ]);
+export const TOKEN_SYMBOLS = new Map(Array.from(SYMBOL_TOKENS, a => a.reverse() as [string, string]));
 
 export const WHITESPACE_TOKEN_TYPES = ['Space', 'Newline'];
 export type WhitespaceTokenType = 'Space' | 'Newline';
@@ -59,12 +60,12 @@ export interface KeywordToken extends BaseToken {
 
 export interface IdentifierToken extends BaseToken {
     type: 'Identifier';
-    id: string;
+    name: string;
 }
 
 export interface IntLiteralToken extends BaseToken {
     type: 'IntLiteral';
-    value: number;
+    value: BigInt;
 }
 
 export type LiteralToken = IntLiteralToken;
@@ -125,8 +126,8 @@ export function tokenize(code: string): Token[] {
         } else if (ID_START_CHARS.includes(char)) {
             const match = code.slice(i).match(ID_REGEX);
             if (match !== null) {
-                const id = match[0];
-                addToken('Identifier', id.length, {id: id});
+                const name = match[0];
+                addToken('Identifier', name.length, {name: name});
             }
         } else if (SYMBOL_START_CHARS.includes(char)) {
             const len2Token = SYMBOL_TOKENS.get(code.slice(i, i + 2));
@@ -142,7 +143,7 @@ export function tokenize(code: string): Token[] {
             const match = code.slice(i).match(INT_LITERAL_REGEX);
             if (match !== null) {
                 const int = match[0];
-                addToken('IntLiteral', int.length, {value: parseInt(int)});
+                addToken('IntLiteral', int.length, {value: BigInt(int)});
             }
         } else {
             let found = false;
