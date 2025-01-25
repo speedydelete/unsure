@@ -2,12 +2,12 @@
 export const KEYWORDS = ['use', 'let', 'const'];
 export type Keyword = typeof KEYWORDS[number];
 
-export type TokenType = 'Space' | 'Newline' | 'Keyword' | 'Identifier' | 'IntLiteral' | 'BinMul' | 'BinAdd' | 'BinSub';
+export type TokenType = 'Space' | 'Newline' | 'Keyword' | 'Identifier' | 'IntLiteral' | 'MulOp' | 'DivOp' | 'AddOp' | 'SubOp';
 
 export interface BaseToken {
     type: TokenType;
     raw: string;
-    char: number;
+    pos: number;
 }
 
 export interface SpaceToken extends BaseToken {
@@ -34,7 +34,7 @@ export interface IntLiteralToken extends BaseToken {
 }
 
 export interface BinOpToken extends BaseToken {
-    type: 'BinMul' | 'BinAdd' | 'BinSub';
+    type: 'MulOp' | 'DivOp' | 'AddOp' | 'SubOp';
 }
 
 export type Token = SpaceToken | NewlineToken | KeywordToken | IdentifierToken | IntLiteralToken | BinOpToken;
@@ -50,9 +50,10 @@ const SYMBOLS = ['*', '+', '-'];
 const SYMBOL_START_CHARS = SYMBOLS.map(x => x[0]);
 
 const SYMBOL_TOKENS: Map<typeof SYMBOLS[number], TokenType> = new Map([
-    ['*', 'BinMul'],
-    ['+', 'BinAdd'],
-    ['-', 'BinSub'],
+    ['*', 'MulOp'],
+    ['/', 'DivOp'],
+    ['+', 'AddOp'],
+    ['-', 'SubOp'],
 ]);
 
 
@@ -65,7 +66,7 @@ export function tokenize(code: string): Token[] {
         out.push({
             type: type,
             raw: code.slice(i, i + len),
-            char: i,
+            pos: i,
             ...args,
         });
         i += len;
@@ -109,7 +110,7 @@ export function tokenize(code: string): Token[] {
                 }
             }
             if (!found) {
-                throw new SyntaxError(`unrecognized token on character ${code.length - i} (line ${line}), starting with "${code.slice(i, i + 10)}"`);
+                throw new SyntaxError(`unrecognized token at position ${code.length - i} (line ${line})`);
             }
         }
     }
