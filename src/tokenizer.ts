@@ -2,7 +2,39 @@
 export const KEYWORDS = ['use', 'let', 'const'];
 export type Keyword = typeof KEYWORDS[number];
 
-export type TokenType = 'Space' | 'Newline' | 'Keyword' | 'Identifier' | 'IntLiteral' | 'MulOp' | 'DivOp' | 'AddOp' | 'SubOp';
+export const SYMBOLS = ['(', ')', '++', '--', '*', '/'];
+
+export const SYMBOL_TOKENS: Map<typeof SYMBOLS[number], TokenType> = new Map([
+    ['(', 'LeftParen'],
+    [')', 'RightParen'],
+    ['++', 'IncOp'],
+    ['--', 'DecOp'],
+    ['*', 'MulOp'],
+    ['/', 'DivOp'],
+    ['+', 'AddOp'],
+    ['-', 'SubOp'],
+]);
+
+export const WHITESPACE_TOKEN_TYPES = ['Space', 'Newline'];
+export type WhitespaceTokenType = 'Space' | 'Newline';
+
+export const LITERAL_TOKEN_TYPES = ['IntLiteral'];
+export type LiteralTokenType = 'IntLiteral';
+
+export const UNARY_OP_TOKEN_TYPES = ['IncOp', 'DecOp'];
+export type UnaryOpTokenType = 'IncOp' | 'DecOp';
+
+export const BIN_OP_TOKEN_TYPES = ['MulOp', 'DivOp', 'AddOp', 'SubOp'];
+export type BinOpTokenType = 'MulOp' | 'DivOp' | 'AddOp' | 'SubOp';
+
+export const OP_TOKEN_TYPES = [...UNARY_OP_TOKEN_TYPES, ...BIN_OP_TOKEN_TYPES];
+export type OpTokenType = UnaryOpTokenType | BinOpTokenType;
+
+export const EXPR_TOKEN_TYPES = ['Identifier', ...LITERAL_TOKEN_TYPES, 'Keyword', 'LeftParen', 'RightParen', ...OP_TOKEN_TYPES];
+export type ExprTokenType = 'Identifier' | LiteralTokenType | 'Keyword' | 'LeftParen' | 'RightParen' | OpTokenType;
+
+export const TOKEN_TYPES = [...WHITESPACE_TOKEN_TYPES, ...EXPR_TOKEN_TYPES];
+export type TokenType = WhitespaceTokenType | ExprTokenType;
 
 export interface BaseToken {
     type: TokenType;
@@ -17,6 +49,8 @@ export interface SpaceToken extends BaseToken {
 export interface NewlineToken extends BaseToken {
     type: 'Newline';
 }
+
+export type WhitespaceToken = SpaceToken | NewlineToken;
 
 export interface KeywordToken extends BaseToken {
     type: 'Keyword';
@@ -33,11 +67,29 @@ export interface IntLiteralToken extends BaseToken {
     value: number;
 }
 
-export interface BinOpToken extends BaseToken {
-    type: 'MulOp' | 'DivOp' | 'AddOp' | 'SubOp';
+export type LiteralToken = IntLiteralToken;
+
+export interface LeftParenToken extends BaseToken {
+    type: 'LeftParen';
 }
 
-export type Token = SpaceToken | NewlineToken | KeywordToken | IdentifierToken | IntLiteralToken | BinOpToken;
+export interface RightParenToken extends BaseToken {
+    type: 'RightParen';
+}
+
+export interface UnaryOpToken extends BaseToken {
+    type: UnaryOpTokenType;
+}
+
+export interface BinOpToken extends BaseToken {
+    type: BinOpTokenType;
+}
+
+export type OpToken = UnaryOpToken | BinOpToken;
+
+export type ExprToken = IdentifierToken | LiteralToken | LeftParenToken | RightParenToken | OpToken;
+
+export type Token = WhitespaceToken | KeywordToken | ExprToken;
 
 
 const ID_START_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_';
@@ -46,15 +98,7 @@ const ID_REGEX = /[a-zA-Z_][a-zA-Z_0-9]*/;
 const INT_LITERAL_START_CHARS = '0123456789-';
 const INT_LITERAL_REGEX = /-?[0-9]+/;
 
-const SYMBOLS = ['*', '+', '-'];
 const SYMBOL_START_CHARS = SYMBOLS.map(x => x[0]);
-
-const SYMBOL_TOKENS: Map<typeof SYMBOLS[number], TokenType> = new Map([
-    ['*', 'MulOp'],
-    ['/', 'DivOp'],
-    ['+', 'AddOp'],
-    ['-', 'SubOp'],
-]);
 
 
 export function tokenize(code: string): Token[] {
