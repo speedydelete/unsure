@@ -1,20 +1,8 @@
 
 export const KEYWORDS = ['use', 'let', 'const'];
-
-const OPERATORS_LEN_2 = ['==', '!=', '>=', '<='];
-const OPERATORS_LEN_1 = ['=', '>', '<', '+', '-', '*', '/', '%', '(', ')'];
-export const OPERATORS = OPERATORS_LEN_1.concat(OPERATORS_LEN_2);
-
-const ID_START_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_';
-const ID_REGEX = /[a-zA-Z_][a-zA-Z_0-9]*/;
-
-const INT_LITERAL_START_CHARS = '0123456789-';
-const INT_LITERAL_REGEX = /-?[0-9]+/;
-
 export type Keyword = typeof KEYWORDS[number];
-export type Operator = typeof OPERATORS[number];
 
-export type TokenType = 'Space' | 'Newline' | 'Keyword' | 'Operator' | 'IntLiteral' | 'Identifier';
+export type TokenType = 'Space' | 'Newline' | 'Keyword' | 'Identifier' | 'IntLiteral' | 'BinMul' | 'BinAdd' | 'BinSub';
 
 export interface BaseToken {
     type: TokenType;
@@ -35,9 +23,9 @@ export interface KeywordToken extends BaseToken {
     value: Keyword;
 }
 
-export interface OperatorToken extends BaseToken {
-    type: 'Operator';
-    op: Operator;
+export interface IdentifierToken extends BaseToken {
+    type: 'Identifier';
+    id: string;
 }
 
 export interface IntLiteralToken extends BaseToken {
@@ -45,12 +33,28 @@ export interface IntLiteralToken extends BaseToken {
     value: number;
 }
 
-export interface IdentifierToken extends BaseToken {
-    type: 'Identifier';
-    id: string;
+export interface BinOpToken extends BaseToken {
+    type: 'BinMul' | 'BinAdd' | 'BinSub';
 }
 
-export type Token = SpaceToken | NewlineToken | KeywordToken | OperatorToken | IntLiteralToken | IdentifierToken;
+export type Token = SpaceToken | NewlineToken | KeywordToken | IdentifierToken | IntLiteralToken | BinOpToken;
+
+
+const ID_START_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_';
+const ID_REGEX = /[a-zA-Z_][a-zA-Z_0-9]*/;
+
+const INT_LITERAL_START_CHARS = '0123456789-';
+const INT_LITERAL_REGEX = /-?[0-9]+/;
+
+const SYMBOLS = ['*', '+', '-'];
+const SYMBOL_START_CHARS = SYMBOLS.map(x => x[0]);
+
+const SYMBOL_TOKENS: Map<typeof SYMBOLS[number], TokenType> = new Map([
+    ['*', 'BinMul'],
+    ['+', 'BinAdd'],
+    ['-', 'BinSub'],
+]);
+
 
 export function tokenize(code: string): Token[] {
     let out: Token[] = [];
@@ -79,11 +83,15 @@ export function tokenize(code: string): Token[] {
                 const id = match[0];
                 addToken('Identifier', id.length, {id: id});
             }
-        } else if (OPERATORS_LEN_1.includes(char)) {
-            if (OPERATORS_LEN_2.includes(code.slice(i, i + 2))) {
-                addToken('Operator', 2, {op: code.slice(i, i + 2)});
+        } else if (SYMBOL_START_CHARS.includes(char)) {
+            const len2Token = SYMBOL_TOKENS.get(code.slice(i, i + 2));
+            if (len2Token !== undefined) {
+                addToken(len2Token, 2);
             } else {
-                addToken('Operator', 1, {op: char});
+                const token = SYMBOL_TOKENS.get(char);
+                if (token !== undefined) {
+                    addToken(token, 1);
+                }
             }
         } else if (INT_LITERAL_START_CHARS.includes(char)) {
             const match = code.slice(i).match(INT_LITERAL_REGEX);

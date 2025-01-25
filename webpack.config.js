@@ -2,13 +2,14 @@
 const path = require('path');
 
 module.exports = {
-    entry: {
-        main: path.resolve(__dirname, 'main/index_web.ts'),
-    },
+    entry: path.resolve(__dirname, 'main/index.ts'),
     output: {
         filename: 'unsure.js',
         path: path.resolve(__dirname, 'dist'),
-        publicPath: '/',
+        library: {
+            name: 'unsure',
+            type: 'umd',
+        },
     },
     resolve: {
         extensions: ['.html', '.js', '.jsx', '.ts', '.tsx'],
@@ -34,19 +35,4 @@ module.exports = {
             },
         ],
     },
-    // comment this out in production mode it doesn't work for some reason
-    // devtool: 'eval-source-map',
-    devServer: {
-        static: {
-            directory: path.join(__dirname, 'dist'),
-        },
-        compress: true,
-        port: 9000,
-        hot: true,
-        liveReload: true,
-        watchFiles: ['src/**/*', 'dist/**/*'],
-        devMiddleware: {
-            writeToDisk: false,
-        },
-    },
-};
+}

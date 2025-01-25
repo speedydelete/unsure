@@ -12,8 +12,10 @@
   },
   "license": "MIT",
   "author": "speedydelete",
-  "type": "module",
-  "main": "main/index.ts",
+  "type": "commonjs",
+  "files": [
+    "dist/**"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "webpack --mode production"
