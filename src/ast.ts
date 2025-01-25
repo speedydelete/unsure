@@ -1,7 +1,7 @@
 
 import * as util from 'util';
 import type {Token, UnaryOpToken, OpToken, LeftParenToken, IdentifierToken, LiteralToken, ExprToken} from './tokenizer';
-import {UNARY_OP_TOKEN_TYPES, BIN_OP_TOKEN_TYPES, EXPR_TOKEN_TYPES, LITERAL_TOKEN_TYPES, TOKEN_SYMBOLS} from './tokenizer';
+import {UNARY_OP_TOKEN_TYPES, BIN_OP_TOKEN_TYPES, EXPR_TOKEN_TYPES, LITERAL_TOKEN_TYPES, TOKEN_SYMBOLS, tokenize} from './tokenizer';
 
 
 const UNARY_OPS = ['++', '--'];
@@ -11,7 +11,7 @@ const PRECEDENCE = [['++'], ['--'], ['*', '/'], ['+', '-']];
 
 export type NodeType = 'Placeholder' | 'Program' | 'Identifier' | 'Literal' | 'UnaryOp' | 'BinOp';
 
-export class Node {
+export class AST {
 
     type: NodeType = 'Placeholder';
 
@@ -30,21 +30,23 @@ export class Node {
 
 }
 
-function makeNodeSubclass<T extends Record<string, any>>(type: NodeType, props: (keyof T)[]): {new(...args: { [K in keyof T]: T[K] }[keyof T][]): Node & T} {
+function makeNodeSubclass<T extends Record<string, any>>(type: NodeType, props: (keyof T)[]): {new(...args: {[K in keyof T]: T[K]}[keyof T][]): AST & T} {
     function out(...args: any[]) {
         Object.defineProperties(this, Object.fromEntries(props.map((prop, index) => [prop, {value: args[index], enumerable: true}])));
     }
-    out.prototype = Object.create(Node.prototype);
+    out.prototype = Object.create(AST.prototype);
     out.prototype.type = type;
-    return out as unknown as {new(...args: {[K in keyof T]: T[K]}[keyof T][]): Node & T};
+    return out as unknown as {new(...args: {[K in keyof T]: T[K]}[keyof T][]): AST & T};
 }
 
 export const Placeholder = makeNodeSubclass<{}>('Placeholder', []);
-export const Program = makeNodeSubclass<{statements: Node[]}>('Program', ['statements']);
+export const Program = makeNodeSubclass<{statements: AST[]}>('Program', ['statements']);
 export const Identifier = makeNodeSubclass<{name: string}>('Identifier', ['name']);
 export const Literal = makeNodeSubclass<{value: BigInt}>('Literal', ['value']);
-export const UnaryOp = makeNodeSubclass<{op: typeof UNARY_OPS[number], a: Node}>('UnaryOp', ['op', 'a']);
-export const BinOp = makeNodeSubclass<{op: typeof BIN_OPS[number], a: Node, b: Node}>('BinOp', ['op', 'a', 'b']);
+export const UnaryOp = makeNodeSubclass<{op: typeof UNARY_OPS[number], a: AST}>('UnaryOp', ['op', 'a']);
+export const BinOp = makeNodeSubclass<{op: typeof BIN_OPS[number], a: AST, b: AST}>('BinOp', ['op', 'a', 'b']);
+
+export type Node = InstanceType<typeof Placeholder> | InstanceType<typeof Program> | InstanceType<typeof Identifier> | InstanceType<typeof Literal> | InstanceType<typeof UnaryOp> | InstanceType<typeof BinOp>;
 
 
 function precedence(op: OpToken): number {
@@ -127,4 +129,8 @@ export function generateAST(tokens: Token[]): InstanceType<typeof Program> {
         }
     }
     return new Program(out);
+}
+
+export function parse(code: string): InstanceType<typeof Program> {
+    return generateAST(tokenize(code));
 }
