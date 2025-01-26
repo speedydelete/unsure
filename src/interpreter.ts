@@ -23,11 +23,15 @@ export function runAST(node: Node): any {
             if (typeof x === 'bigint') {
                 return x + 1n;
             } else {
-                return x - 1n;
+                return x + 1;
             }
-            return runAST(node.x) + 1;
         } else if (node.op === '--') {
-            return runAST(node.x) - 1;
+            const x = runAST(node.x);
+            if (typeof x === 'bigint') {
+                return x - 1n;
+            } else {
+                return x - 1;
+            }
         } else {
             throw new InvalidASTError(`invalid UnaryOp op parameter: ${node.op}`);
         }
