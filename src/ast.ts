@@ -43,7 +43,7 @@ export const Placeholder = makeNodeSubclass<{}>('Placeholder', []);
 export const Program = makeNodeSubclass<{statements: AST[]}>('Program', ['statements']);
 export const Identifier = makeNodeSubclass<{name: string}>('Identifier', ['name']);
 export const Literal = makeNodeSubclass<{value: BigInt}>('Literal', ['value']);
-export const UnaryOp = makeNodeSubclass<{op: typeof UNARY_OPS[number], a: AST}>('UnaryOp', ['op', 'a']);
+export const UnaryOp = makeNodeSubclass<{op: typeof UNARY_OPS[number], x: AST}>('UnaryOp', ['op', 'x']);
 export const BinOp = makeNodeSubclass<{op: typeof BIN_OPS[number], a: AST, b: AST}>('BinOp', ['op', 'a', 'b']);
 
 export type Node = InstanceType<typeof Placeholder> | InstanceType<typeof Program> | InstanceType<typeof Identifier> | InstanceType<typeof Literal> | InstanceType<typeof UnaryOp> | InstanceType<typeof BinOp>;
