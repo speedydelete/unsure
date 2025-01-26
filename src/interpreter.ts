@@ -19,6 +19,12 @@ export function runAST(node: Node): any {
         return node.value;
     } else if (node instanceof UnaryOp) {
         if (node.op === '++') {
+            const x = runAST(node.x);
+            if (typeof x === 'bigint') {
+                return x + 1n;
+            } else {
+                return x - 1n;
+            }
             return runAST(node.x) + 1;
         } else if (node.op === '--') {
             return runAST(node.x) - 1;
