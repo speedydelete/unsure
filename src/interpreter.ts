@@ -20,7 +20,11 @@ export function _run(node: Node, scope?: Scope): any {
     } else if (node instanceof Literal) {
         return node.value;
     } else if (node instanceof UnaryOp) {
-        if (node.op === '++') {
+        if (node.op === '-') {
+            return -_run(node.x);
+        } else if (node.op === '+') {
+            return +_run(node.x);
+        } else if (node.op === '++') {
             const x = _run(node.x);
             if (typeof x === 'bigint') {
                 return x + 1n;

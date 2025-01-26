@@ -1,7 +1,7 @@
 
 import * as util from 'util';
-import type {Token, UnaryOpToken, OpToken, LeftParenToken, IdentifierToken, LiteralToken, ExprToken} from './tokenizer';
-import {UNARY_OP_TOKEN_TYPES, BIN_OP_TOKEN_TYPES, EXPR_TOKEN_TYPES, LITERAL_TOKEN_TYPES, TOKEN_SYMBOLS, tokenize} from './tokenizer';
+import type {Token, UnaryOpToken, OpToken, LeftParenToken, LiteralToken, ExprToken} from './tokenizer';
+import {UNARY_OP_TOKEN_TYPES, BIN_OP_TOKEN_TYPES, EXPR_TOKEN_TYPES, LITERAL_TOKEN_TYPES, TOKEN_SYMBOLS, UNARY_OR_BIN_OP_TOKEN_TYPES, tokenize} from './tokenizer';
 
 
 const UNARY_OPS = ['++', '--'];
@@ -60,12 +60,21 @@ function precedence(op: OpToken): number {
 function shuntingYard(tokens: Token[]): Token[] {
     let output: ExprToken[] = [];
     let stack: (OpToken | LeftParenToken)[] = [];
+    let expectUnary = false;
     while (tokens.length > 0 && EXPR_TOKEN_TYPES.includes(tokens[0].type)) {
         const token = tokens.shift()!;
         if (token.type === 'Identifier' || token.type === 'IntLiteral') {
             output.push(token);
-        } else if (UNARY_OP_TOKEN_TYPES.includes(token.type)) {
-            stack.push(token as UnaryOpToken);
+            expectUnary = false;
+        } else if (UNARY_OP_TOKEN_TYPES.includes(token.type) || expectUnary && UNARY_OR_BIN_OP_TOKEN_TYPES.includes(token.type)) {
+            if (token.type === 'SubOp') {
+                stack.push({type: 'MinusOp', raw: token.raw, pos: token.pos})
+            } else if (token.type === 'AddOp') {
+                stack.push({type: 'PlusOp', raw: token.raw, pos: token.pos})
+            } else {
+                stack.push(token as UnaryOpToken);
+            }
+            expectUnary = true;
         } else if (BIN_OP_TOKEN_TYPES.includes(token.type)) {
             while (stack.length > 0) {
                 const top = stack[stack.length - 1];
@@ -75,8 +84,10 @@ function shuntingYard(tokens: Token[]): Token[] {
                 output.push(stack.pop())
             }
             stack.push(token as OpToken);
+            expectUnary = true;
         } else if (token.type === 'LeftParen') {
             stack.push(token);
+            expectUnary = true;
         } else if (token.type === 'RightParen') {
             while (stack[stack.length - 1].type !== 'LeftParen') {
                 if (stack.length === 0) {
@@ -85,6 +96,7 @@ function shuntingYard(tokens: Token[]): Token[] {
                 output.push(stack.pop());
             }
             stack.pop();
+            expectUnary = false;
         }
     }
     while (stack.length > 0) {

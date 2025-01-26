@@ -15,6 +15,8 @@ export const SYMBOL_TOKENS: Map<typeof SYMBOLS[number], TokenType> = new Map([
     ['-', 'SubOp'],
 ]);
 export const TOKEN_SYMBOLS = new Map(Array.from(SYMBOL_TOKENS, a => a.reverse() as [string, string]));
+TOKEN_SYMBOLS.set('MinusOp', '-');
+TOKEN_SYMBOLS.set('PlusOp', '+');
 
 export const WHITESPACE_TOKEN_TYPES = ['Space', 'Newline'];
 export type WhitespaceTokenType = 'Space' | 'Newline';
@@ -22,8 +24,11 @@ export type WhitespaceTokenType = 'Space' | 'Newline';
 export const LITERAL_TOKEN_TYPES = ['IntLiteral'];
 export type LiteralTokenType = 'IntLiteral';
 
-export const UNARY_OP_TOKEN_TYPES = ['IncOp', 'DecOp'];
-export type UnaryOpTokenType = 'IncOp' | 'DecOp';
+export const UNARY_OP_TOKEN_TYPES = ['IncOp', 'DecOp', 'MinusOp', 'PlusOp'];
+export type UnaryOpTokenType = 'IncOp' | 'DecOp' | 'MinusOp' | 'PlusOp';
+
+export const UNARY_OR_BIN_OP_TOKEN_TYPES = ['AddOp', 'SubOp'];
+export type UnaryOrBinOpTokenType = 'AddOp' | 'SubOp';
 
 export const BIN_OP_TOKEN_TYPES = ['MulOp', 'DivOp', 'AddOp', 'SubOp'];
 export type BinOpTokenType = 'MulOp' | 'DivOp' | 'AddOp' | 'SubOp';
