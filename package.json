@@ -1,6 +1,6 @@
 {
   "name": "unsure-lang",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Programming language",
   "keywords": ["unsure", "language"],
   "homepage": "https://github.com/speedydelete/unsure#readme",
@@ -22,7 +22,10 @@
     "./ast.ts": "./dist/ast.ts",
     "./tokenizer": "./dist/tokenizer.js",
     "./tokenizer.js": "./dist/tokenizer.js",
-    "./tokenizer.ts": "./dist/tokenizer.js"
+    "./tokenizer.ts": "./dist/tokenizer.js",
+    "./cli": "./dist/cli.js",
+    "./cli.js": "./dist/cli.js",
+    "./cli.ts": "./dist/cli.js"
   },
   "main": "./dist/index.js",
   "bin": {
