@@ -6,11 +6,11 @@ import {program} from 'commander';
 import {run, runEval, Environment} from './interpreter';
 
 async function repl() {
-    console.log(`Unsure ${program.version()}`);
+    console.log(`\x1b[0mUnsure ${program.version()}`);
     const rl = readline.createInterface({input: process.stdin, output: process.stdout});
     const env = new Environment();
     while (true) {
-        const code = await rl.question('>>> ');
+        const code = await rl.question('\x1b[94m>>>\x1b[0m ');
         console.log(env.runEval(code));
     }
 }
