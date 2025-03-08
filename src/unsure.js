@@ -200,6 +200,15 @@ let set_number = get_internal_symbol('set_number'); // should be a function taki
 let $number = Object.assign(any(), {
     [s.name]: 'number',
     [s.prototype]: {
+        [s.init](value) {
+            if (typeof value === 'number' || typeof value === 'bigint') {
+                this[set_number](value);
+            } else if (get_number in value) {
+                this[set_number](value[get_number]);
+            } else {
+                throw new UnsureError('TypeError', `invalid type for casting to number: ${value[s.constructor][s.name]}`);
+            }
+        },
         // default values (for typed arrays)
         [s.get_number]() {
             return this[s.number_value][0];
@@ -209,13 +218,6 @@ let $number = Object.assign(any(), {
         },
         [s.to_boolean]() {
             return boolean(this[get_number]() !== 0);
-        },
-        [s.init](value) {
-            if (typeof value === 'number') {
-                this[set_number](value);
-            } else if (get_number in value) {
-    
-            } 
         },
         [s.gt](other) {
             return boolean(this[get_number]() > other[get_number]());
@@ -642,3 +644,9 @@ let $array = Object.assign(any(), {
     },
 });
 let array = $array[s.call];
+
+// constants
+let $true = boolean(true);
+let $false = boolean(false);
+let $NaN = double(NaN);
+let $Infinity = double(Infinity);

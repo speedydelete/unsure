@@ -100,6 +100,7 @@ export class SyntaxError_ extends Error {
 
 
 export interface BaseToken {
+    ast: false;
     type: string;
     raw: string;
     line: number;
@@ -107,7 +108,7 @@ export interface BaseToken {
 }
 
 export function BaseToken(type: string, raw: string, line: number, col: number): BaseToken {
-    return {type, raw, line, col};
+    return {ast: false, type, raw, line, col};
 }
 
 type CreateTokenType<Type extends string, T extends {[key: string]: unknown} = {}> = BaseToken & {type: Type} & T;
@@ -115,7 +116,7 @@ type CreateTokenType<Type extends string, T extends {[key: string]: unknown} = {
 function createTokenFactory<T extends BaseToken>(type: string, ...names: string[]): (raw: string, line: number, col: number, ...args: T[keyof Omit<T, keyof BaseToken>][]) => T {
     return function(raw: string, line: number, col: number, ...args: T[keyof Omit<T, keyof BaseToken>][]): T {
         // @ts-ignore // why
-        return Object.assign(Token(type, raw, line, col), Object.fromEntries(names.map((name, i) => [name, args[i]])));
+        return Object.assign(BaseToken(type, raw, line, col), Object.fromEntries(names.map((name, i) => [name, args[i]])));
     }
 }
 
@@ -155,10 +156,12 @@ export let StringLiteral = createTokenFactory<StringLiteral>('StringLiteral', 'v
 export type NumberLiteral = CreateTokenType<'NumberLiteral', {value: string, flags: string}>;
 export let NumberLiteral = createTokenFactory<NumberLiteral>('NumberLiteral', 'value', 'flags');
 
-export type Keyword<T extends typeof KEYWORDS[number] = typeof KEYWORDS[number]> = CreateTokenType<'Keyword', {name: string}>;
+export type Keyword<T extends typeof KEYWORDS[number] = typeof KEYWORDS[number]> = CreateTokenType<'Keyword', {name: T}>;
 export let Keyword = createTokenFactory<Keyword>('Keyword', 'name');
 
-export type Operator = CreateTokenType<'Operator', {op: string}>;
+
+export type OperatorString = '&&' | '||' | '^^' | '==' | '!=' | '>=' | '<=' | '**' | '+' | '-' | '*' | '/' | '%' | '&' | '|' | '^' | '!' | '~' | '<' | '>' | 'extends' | 'instanceof' | 'subclassof';
+export type Operator<T extends OperatorString = OperatorString> = CreateTokenType<'Operator', {op: T}>;
 export let Operator = createTokenFactory<Operator>('Operator', 'op');
 
 export type Identifier = CreateTokenType<'Identifier', {name: string}>;
@@ -209,7 +212,7 @@ function extractString(code: CodeStream, endsWith: string): string {
 
 const KEYWORDS = ['let', 'const', 'if', 'else', 'for', 'while', 'return', 'def', 'in', 'typeof', 'extends', 'instanceof', 'subclassof', 'type', 'interface', 'use', 'class', 'break', 'continue', 'async', 'await', 'yield', 'switch', 'case', 'throw', 'try', 'catch', 'finally', 'enum', 'super', 'abstract'];
 
-const OPERATORS = ['++', '--', '&&', '||', '^^', '==', '!=', '<=', '>=', '**', '+', '-', '*', '/', '%', '&', '|', '^', '!', '~', '<', '>', '?', ':'];
+const OPERATORS = ['++', '--', '&&', '||', '^^', '==', '!=', '<=', '>=', '**', '+', '-', '*', '/', '%', '&', '|', '^', '!', '~', '<', '>', '?', ':', 'extends', 'instanceof', 'subclassof'];
 
 export function tokenize(code: string | CodeStream): Token[] {
     if (typeof code === 'string') {
@@ -249,6 +252,7 @@ export function tokenize(code: string | CodeStream): Token[] {
         } else if (code.eat(']')) {
             code.token(RightBracket);
         } else if (text = code.eat(OPERATORS)) {
+            // @ts-ignore
             code.token(Operator, text);
         } else if (code.eat("'")) {
             code.token(StringLiteral, extractString(code, "'"));

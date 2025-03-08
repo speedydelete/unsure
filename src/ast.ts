@@ -7,10 +7,15 @@ export type TokenList<T extends t.Token = t.Token> = [T, ...t.Token[]];
 
 
 export interface BaseAST {
+    ast: true;
     type: string;
     raw: string;
     line: number;
     col: number;
+}
+
+export function BaseAST(type: string, raw: string, line: number, col: number): BaseAST {
+    return {ast: true, type, raw, line, col};
 }
 
 type CreateASTType<Type extends string, T extends {[key: string]: unknown} = {}> = BaseAST & {type: Type} & T;
@@ -18,26 +23,46 @@ type CreateASTType<Type extends string, T extends {[key: string]: unknown} = {}>
 function createASTFactory<T extends BaseAST>(type: string, ...names: (keyof Omit<T, keyof BaseAST>)[]): (raw: string, line: number, col: number, ...args: T[keyof Omit<T, keyof BaseAST>][]) => T {
     return function(raw: string, line: number, col: number, ...args: T[keyof Omit<T, keyof BaseAST>][]): T {
         // @ts-ignore // why
-        return Object.assign(Token(type, raw, line, col), Object.fromEntries(names.map((name, i) => [name, args[i]])));
+        return Object.assign(BaseAST(type, raw, line, col), Object.fromEntries(names.map((name, i) => [name, args[i]])));
     }
 }
 
 export type StringLiteral = CreateASTType<'StringLiteral', {value: string}>;
 export let StringLiteral = createASTFactory<StringLiteral>('StringLiteral', 'value');
-export type NumberLiteral = CreateASTType<'NumberLiteral', {value: string}>;
-export let NumberLiteral = createASTFactory<NumberLiteral>('NumberLiteral', 'value');
+
+export type ByteLiteral = CreateASTType<'ByteLiteral', {value: number}>;
+export let ByteLiteral = createASTFactory<ByteLiteral>('ByteLiteral', 'value');
+export type ShortLiteral = CreateASTType<'ShortLiteral', {value: number}>;
+export let ShortLiteral = createASTFactory<ShortLiteral>('ShortLiteral', 'value');
+export type IntLiteral = CreateASTType<'IntLiteral', {value: number}>;
+export let IntLiteral = createASTFactory<IntLiteral>('IntLiteral', 'value');
+export type LongLiteral = CreateASTType<'LongLiteral', {value: bigint}>;
+export let LongLiteral = createASTFactory<LongLiteral>('LongLiteral', 'value');
+export type BigintLiteral = CreateASTType<'BigintLiteral', {value: bigint}>;
+export let BigintLiteral = createASTFactory<BigintLiteral>('BigintLiteral', 'value');
+export type FloatLiteral = CreateASTType<'FloatLiteral', {value: number}>;
+export let FloatLiteral = createASTFactory<FloatLiteral>('FloatLiteral', 'value');
+export type DoubleLiteral = CreateASTType<'DoubleLiteral', {value: number}>;
+export let DoubleLiteral = createASTFactory<DoubleLiteral>('DoubleLiteral', 'value');
+export type NumberLiteral = ByteLiteral | ShortLiteral | IntLiteral | LongLiteral | BigintLiteral | FloatLiteral | DoubleLiteral;
+
 export type Identifier = CreateASTType<'Identifier', {name: string}>;
 export let Identifier = createASTFactory<Identifier>('Identifier', 'name');
 
 export type UnaryOp = CreateASTType<'UnaryOp', {op: '+' | '-' | '++' | '--' | '!' | '~' | 'typeof', value: Expression}>;
 export let UnaryOp = createASTFactory<UnaryOp>('UnaryOp', 'op', 'value');
-export type BinaryOp = CreateASTType<'BinaryOp', {op: '&&' | '||' | '^^' | '==' | '!=' | '>=' | '<=' | '**' | '+' | '-' | '*' | '/' | '%' | '&' | '|' | '^' | '!' | '~' | '<' | '>' | 'extends' | 'instanceof' | 'subclassof', left: Expression, right: Expression}>;
+export type BinaryOp = CreateASTType<'BinaryOp', {op: t.OperatorString, left: Expression, right: Expression}>;
 export let BinaryOp = createASTFactory<BinaryOp>('BinaryOp', 'op', 'left', 'right');
 export type TernaryConditional = CreateASTType<'TernaryConditional', {test: Expression, left: Expression, right: Expression}>;
 export let TernaryConditional = createASTFactory<TernaryConditional>('BinaryOp', 'test', 'left', 'right');
 
+export type Argument = CreateASTType<'Argument', {name: Identifier, type_: Expression | null, value: Expression | null}>;
+export let Argument = createASTFactory<Argument>('Argument', 'name', 'type_', 'value');
+
 export type PropertyAccess = CreateASTType<'PropertyAccess', {obj: Expression, prop: Identifier}>;
 export let PropertyAccess = createASTFactory<PropertyAccess>('PropertyAccess', 'obj', 'prop');
+export type FunctionCall = CreateASTType<'FunctionCall', {func: Expression, args: Argument[]}>;
+export let FunctionCall = createASTFactory<FunctionCall>('FunctionCall', 'func', 'args');
 export type GetItem = CreateASTType<'GetItem', {obj: Expression, index: Expression}>;
 export let GetItem = createASTFactory<GetItem>('GetItem', 'obj', 'index');
 export type GetSlice = CreateASTType<'GetSlice', {obj: Expression, start: Expression, stop: Expression}>;
@@ -46,7 +71,7 @@ export let GetSlice = createASTFactory<GetSlice>('GetSlice', 'obj', 'start', 'st
 export type Generic = CreateASTType<'Generic', {obj: Expression, generic: Expression[]}>;
 export let Generic = createASTFactory<Generic>('Generic', 'obj', 'generic');
 
-export type Expression = StringLiteral | NumberLiteral | Identifier | UnaryOp | BinaryOp | TernaryConditional | PropertyAccess | GetItem | GetSlice | Generic;
+export type Expression = StringLiteral | NumberLiteral | Identifier | UnaryOp | BinaryOp | TernaryConditional | PropertyAccess | FunctionCall | GetItem | GetSlice | Generic;
 
 export type Assignment = CreateASTType<'Assignment', {const: boolean, id: Identifier | GetItem, value: Expression}>;
 export let Assignment = createASTFactory<Assignment>('Assignment', 'const', 'id', 'value');
@@ -60,8 +85,6 @@ export let ForLoop = createASTFactory<ForLoop>('ForLoop', 'initial', 'test', 'lo
 export type WhileLoop = CreateASTType<'WhileLoop', {test: Expression, body: Statement[]}>;
 export let WhileLoop = createASTFactory<WhileLoop>('WhileLoop', 'test', 'body');
 
-export type Argument = CreateASTType<'Argument', {name: Identifier, type_: Expression | null, value: Expression | null}>;
-export let Argument = createASTFactory<Argument>('Argument', 'name', 'type_', 'value');
 export type FunctionDefinition = CreateASTType<'FunctionDefinition', {name: Identifier, arguments: Argument[], body: Statement[], orelse: Statement[]}>;
 export let FunctionDefinition = createASTFactory<FunctionDefinition>('FunctionDefinition', 'name', 'arguments', 'body');
 
@@ -76,7 +99,7 @@ export let Program = createASTFactory<Program>('Program', 'statements');
 export type AST = Program | Statement;
 
 
-export function createNode<T extends typeof StringLiteral | typeof NumberLiteral | typeof Identifier | typeof UnaryOp | typeof BinaryOp | typeof TernaryConditional | typeof PropertyAccess | typeof GetItem | typeof GetSlice | typeof Generic | typeof Assignment | typeof TypedAssignment | typeof IfStatement | typeof ForLoop | typeof WhileLoop | typeof Argument | typeof FunctionDefinition | typeof ClassDefinition | typeof Program>(node: T, token: t.Token | t.Token[], ...args: T extends (raw: string, line: number, col: number, ...args: infer U) => ReturnType<T> ? U : never): ReturnType<T> {
+export function createNode<T extends typeof StringLiteral | typeof ByteLiteral | typeof ShortLiteral | typeof IntLiteral | typeof LongLiteral | typeof BigintLiteral | typeof FloatLiteral | typeof DoubleLiteral | typeof Identifier | typeof UnaryOp | typeof BinaryOp | typeof TernaryConditional | typeof Argument | typeof PropertyAccess | typeof FunctionCall | typeof GetItem | typeof GetSlice | typeof Generic | typeof Assignment | typeof TypedAssignment | typeof IfStatement | typeof ForLoop | typeof WhileLoop | typeof FunctionDefinition | typeof ClassDefinition | typeof Program>(node: T, token: t.Token | t.Token[], ...args: T extends (raw: string, line: number, col: number, ...args: infer U) => ReturnType<T> ? U : never): ReturnType<T> {
     if (token instanceof Array) {
         // @ts-ignore // why doesn't this work
         return node(token.map(x => x.raw).join(' '), token[0].line, token[0].col, ...args);
@@ -86,11 +109,107 @@ export function createNode<T extends typeof StringLiteral | typeof NumberLiteral
     }
 }
 
-export function parseSimpleExpression(tokens: (t.Token | Expression)[]): Expression {
-    
+export function parseCall(tokens: t.Token[]): FunctionCall {
+    throw new TypeError('function calls are not supported');
 }
 
-type RecursiveToken = t.Token | RecursiveToken[];
+export const PRECEDENCE: {[key: string]: number} = {
+    '**': 8,
+    '*': 7,
+    '/': 7,
+    '%': 7,
+    '+': 6,
+    '-': 6,
+    '&': 5,
+    '|': 5,
+    '^': 5,
+    'extends': 3,
+    'instanceof': 3,
+    'subclassof': 3,
+    '==': 2,
+    '!=': 2,
+    '<': 2,
+    '<=': 2,
+    '>': 2,
+    '>=': 2,
+    '&&': 1,
+    '||': 1,
+    '^^': 1,
+};
+
+export function parseSimpleExpression(tokens: (t.Token | Expression)[]): Expression {
+    let out: (t.Token | Expression)[] = [];
+    let ops: t.Operator[] = [];
+    for (let token of tokens) {
+        if (token.ast) {
+            out.push(token);
+        }
+        if (token.type === 'Keyword' && (token.name === 'extends' || token.name === 'instanceof' || token.name === 'subclassof')) {
+            token = t.Operator(token.raw, token.line, token.col, token.name);
+        }
+        if (token.type === 'Operator') {
+            while (ops.length > 0 && PRECEDENCE[token.op] > PRECEDENCE[ops[0].op]) {
+                out.push(ops.pop() as t.Operator);
+            }
+            ops.push(token);
+        } else {
+            out.push(token);
+        }
+    }
+    let left: Expression | null = null;
+    let right: Expression | null = null;
+    for (let token of out) {
+        if (token.type === 'Operator') {
+            if (left === null || right === null) {
+                throw new SyntaxError_('invalid expression', token);
+            }
+            left = createNode(BinaryOp, token, token.op, left, right);
+            continue;
+        }
+        let expr: Expression;
+        if (token.ast) {
+            expr = token;
+        } else if (token.type === 'Identifier') {
+            expr = createNode(Identifier, token, token.name);
+        } else if (token.type === 'StringLiteral') {
+            expr = createNode(StringLiteral, token, token.value);
+        } else if (token.type === 'NumberLiteral') {
+            let value = token.value;
+            if (value.includes('.')) {
+                if (value.endsWith('f')) {
+                    expr = createNode(FloatLiteral, token, parseFloat(value));
+                } else {
+                    expr = createNode(DoubleLiteral, token, parseFloat(value));
+                }
+            } else {
+                if (value.endsWith('b')) {
+                    expr = createNode(ByteLiteral, token, parseInt(value));
+                } else if (value.endsWith('s')) {
+                    expr = createNode(ShortLiteral, token, parseInt(value));
+                } else if (value.endsWith('i')) {
+                    expr = createNode(IntLiteral, token, parseInt(value));
+                } else if (value.endsWith('l')) {
+                    expr = createNode(LongLiteral, token, BigInt(value));
+                } else {
+                    expr = createNode(BigintLiteral, token, BigInt(value));
+                }
+            }
+        } else {
+            throw new SyntaxError_(`invalid token in expression: ${token.type}`, token);
+        }
+        if (left === null) {
+            left = expr;
+        } else if (right === null) {
+            right = expr;
+        } else {
+            throw new SyntaxError_('invalid syntax', expr);
+        }
+    }
+    if (left === null) {
+        throw new SyntaxError_('empty expression', tokens[0]);
+    }
+    return left;
+}
 
 export function parseExpression(tokens: t.Token[], startIndex: number = 0, endAtParen: boolean = false): [Expression, number] {
     let wasIdentifier = false;
@@ -180,7 +299,7 @@ export function parseStatement(tokens: t.Token[]): Statement {
                 return createNode(IfStatement, tokens, test, body, []);
             }
         } else if (keyword === 'let' || keyword === 'const') {
-            return parseAssignment(tokens as TokenList<t.Keyword<'let, const'>>);
+            return parseAssignment(tokens as TokenList<t.Keyword<'let' | 'const'>>);
         } else {
             throw new SyntaxError_(`${keyword} does not have an assigned meaning`, tokens[0]);
         }
