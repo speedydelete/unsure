@@ -153,8 +153,8 @@ export let Equals = createTokenFactory<Equals>('Equals');
 
 export type StringLiteral = CreateTokenType<'StringLiteral', {value: string}>;
 export let StringLiteral = createTokenFactory<StringLiteral>('StringLiteral', 'value');
-export type NumberLiteral = CreateTokenType<'NumberLiteral', {value: string, flags: string}>;
-export let NumberLiteral = createTokenFactory<NumberLiteral>('NumberLiteral', 'value', 'flags');
+export type NumberLiteral = CreateTokenType<'NumberLiteral', {value: string}>;
+export let NumberLiteral = createTokenFactory<NumberLiteral>('NumberLiteral', 'value');
 
 export type Keyword<T extends typeof KEYWORDS[number] = typeof KEYWORDS[number]> = CreateTokenType<'Keyword', {name: T}>;
 export let Keyword = createTokenFactory<Keyword>('Keyword', 'name');

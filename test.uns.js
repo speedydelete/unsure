@@ -656,3 +656,4 @@ let $true = boolean(true);
 let $false = boolean(false);
 let $NaN = double(NaN);
 let $Infinity = double(Infinity);
+;let $__debug__ = undefined;$__debug__=bigint(1);if($__debug__!==undefined){console.log($__debug__);};

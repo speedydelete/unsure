@@ -27,6 +27,9 @@ function createASTFactory<T extends BaseAST>(type: string, ...names: (keyof Omit
     }
 }
 
+export type Identifier = CreateASTType<'Identifier', {name: string}>;
+export let Identifier = createASTFactory<Identifier>('Identifier', 'name');
+
 export type StringLiteral = CreateASTType<'StringLiteral', {value: string}>;
 export let StringLiteral = createASTFactory<StringLiteral>('StringLiteral', 'value');
 
@@ -46,15 +49,12 @@ export type DoubleLiteral = CreateASTType<'DoubleLiteral', {value: number}>;
 export let DoubleLiteral = createASTFactory<DoubleLiteral>('DoubleLiteral', 'value');
 export type NumberLiteral = ByteLiteral | ShortLiteral | IntLiteral | LongLiteral | BigintLiteral | FloatLiteral | DoubleLiteral;
 
-export type Identifier = CreateASTType<'Identifier', {name: string}>;
-export let Identifier = createASTFactory<Identifier>('Identifier', 'name');
-
 export type UnaryOp = CreateASTType<'UnaryOp', {op: '+' | '-' | '++' | '--' | '!' | '~' | 'typeof', value: Expression}>;
 export let UnaryOp = createASTFactory<UnaryOp>('UnaryOp', 'op', 'value');
 export type BinaryOp = CreateASTType<'BinaryOp', {op: t.OperatorString, left: Expression, right: Expression}>;
 export let BinaryOp = createASTFactory<BinaryOp>('BinaryOp', 'op', 'left', 'right');
-export type TernaryConditional = CreateASTType<'TernaryConditional', {test: Expression, left: Expression, right: Expression}>;
-export let TernaryConditional = createASTFactory<TernaryConditional>('BinaryOp', 'test', 'left', 'right');
+export type TernaryConditional = CreateASTType<'TernaryConditional', {test: Expression, if_true: Expression, if_false: Expression}>;
+export let TernaryConditional = createASTFactory<TernaryConditional>('BinaryOp', 'test', 'if_true', 'if_false');
 
 export type Argument = CreateASTType<'Argument', {name: Identifier, type_: Expression | null, value: Expression | null}>;
 export let Argument = createASTFactory<Argument>('Argument', 'name', 'type_', 'value');
@@ -71,10 +71,10 @@ export let GetSlice = createASTFactory<GetSlice>('GetSlice', 'obj', 'start', 'st
 export type Generic = CreateASTType<'Generic', {obj: Expression, generic: Expression[]}>;
 export let Generic = createASTFactory<Generic>('Generic', 'obj', 'generic');
 
-export type Expression = StringLiteral | NumberLiteral | Identifier | UnaryOp | BinaryOp | TernaryConditional | PropertyAccess | FunctionCall | GetItem | GetSlice | Generic;
+export type Expression = Identifier | StringLiteral | NumberLiteral | UnaryOp | BinaryOp | TernaryConditional | PropertyAccess | FunctionCall | GetItem | GetSlice | Generic;
 
-export type Assignment = CreateASTType<'Assignment', {const: boolean, id: Identifier | GetItem, value: Expression}>;
-export let Assignment = createASTFactory<Assignment>('Assignment', 'const', 'id', 'value');
+export type Assignment = CreateASTType<'Assignment', {declare: boolean, const: boolean, id: Identifier | GetItem, value: Expression}>;
+export let Assignment = createASTFactory<Assignment>('Assignment', 'declare', 'const', 'id', 'value');
 export type TypedAssignment = CreateASTType<'TypedAssignment', {type_: Expression, const: boolean, id: Identifier | GetItem, value: Expression}>;
 export let TypedAssignment = createASTFactory<TypedAssignment>('TypedAssignment', 'type_', 'const', 'id', 'value');
 
@@ -97,9 +97,10 @@ export type Program = CreateASTType<'Program', {statements: Statement[]}>;
 export let Program = createASTFactory<Program>('Program', 'statements');
 
 export type AST = Program | Statement;
+export type Node = AST | Expression;
 
 
-export function createNode<T extends typeof StringLiteral | typeof ByteLiteral | typeof ShortLiteral | typeof IntLiteral | typeof LongLiteral | typeof BigintLiteral | typeof FloatLiteral | typeof DoubleLiteral | typeof Identifier | typeof UnaryOp | typeof BinaryOp | typeof TernaryConditional | typeof Argument | typeof PropertyAccess | typeof FunctionCall | typeof GetItem | typeof GetSlice | typeof Generic | typeof Assignment | typeof TypedAssignment | typeof IfStatement | typeof ForLoop | typeof WhileLoop | typeof FunctionDefinition | typeof ClassDefinition | typeof Program>(node: T, token: t.Token | t.Token[], ...args: T extends (raw: string, line: number, col: number, ...args: infer U) => ReturnType<T> ? U : never): ReturnType<T> {
+export function createNode<T extends typeof Identifier | typeof StringLiteral | typeof ByteLiteral | typeof ShortLiteral | typeof IntLiteral | typeof LongLiteral | typeof BigintLiteral | typeof FloatLiteral | typeof DoubleLiteral | typeof UnaryOp | typeof BinaryOp | typeof TernaryConditional | typeof Argument | typeof PropertyAccess | typeof FunctionCall | typeof GetItem | typeof GetSlice | typeof Generic | typeof Assignment | typeof TypedAssignment | typeof IfStatement | typeof ForLoop | typeof WhileLoop | typeof FunctionDefinition | typeof ClassDefinition | typeof Program>(node: T, token: t.Token | t.Token[], ...args: T extends (raw: string, line: number, col: number, ...args: infer U) => ReturnType<T> ? U : never): ReturnType<T> {
     if (token instanceof Array) {
         // @ts-ignore // why doesn't this work
         return node(token.map(x => x.raw).join(' '), token[0].line, token[0].col, ...args);
@@ -214,7 +215,7 @@ export function parseSimpleExpression(tokens: (t.Token | Expression)[]): Express
 export function parseExpression(tokens: t.Token[], startIndex: number = 0, endAtParen: boolean = false): [Expression, number] {
     let wasIdentifier = false;
     let out: (t.Token | Expression)[] = [];
-    for (let i = 0; i < tokens.length; i++) {
+    for (let i = startIndex; i < tokens.length; i++) {
         let token = tokens[i];
         if (token.type === 'LeftParen') {
             if (wasIdentifier) {
@@ -242,15 +243,25 @@ export function parseExpression(tokens: t.Token[], startIndex: number = 0, endAt
     return [parseSimpleExpression(out), tokens.length];
 }
 
-export function parseTypedAssignment(tokens: TokenList<t.Identifier>, const_: boolean): TypedAssignment {
-    if (tokens[1].type !== 'Identifier') {
-        throw new SyntaxError_('expected identifier', tokens[1]);
+export function parseTypedAssignment(tokens: TokenList<t.Identifier>, const_: boolean): Assignment | TypedAssignment {
+    if (tokens[1].type === 'Identifier') {
+        if (tokens[2].type !== 'Equals') {
+            throw new SyntaxError_('expected equals sign', tokens[2]);
+        }
+        let [expr, len] = parseExpression(tokens, 3);
+        if (len !== tokens.length) {
+            throw new SyntaxError_('expected semicolon', tokens[len]);
+        }
+        return createNode(TypedAssignment, tokens, createNode(Identifier, tokens[0], tokens[0].name), const_, createNode(Identifier, tokens[1], tokens[1].name), expr);
+    } else if (tokens[1].type === 'Equals') {
+        let [expr, len] = parseExpression(tokens, 2);
+        if (len !== tokens.length) {
+            throw new SyntaxError_('expected semicolon', tokens[len]);
+        }
+        return createNode(Assignment, tokens, false, false, createNode(Identifier, tokens[0], tokens[0].name), expr);
+    } else {
+        throw new SyntaxError_('expected identifier or equals sign', tokens[1]);
     }
-    let [expr, len] = parseExpression(tokens, 2);
-    if (len !== tokens.length) {
-        throw new SyntaxError_('expected semicolon', tokens[len]);
-    }
-    return createNode(TypedAssignment, tokens, createNode(Identifier, tokens[0], tokens[0].name), const_, createNode(Identifier, tokens[1], tokens[1].name), expr);
 }
 
 export function parseAssignment(tokens: TokenList<t.Keyword<'let' | 'const'> | t.Identifier>): Assignment | TypedAssignment {
@@ -263,7 +274,7 @@ export function parseAssignment(tokens: TokenList<t.Keyword<'let' | 'const'> | t
             if (len !== tokens.length) {
                 throw new SyntaxError_('expected semicolon', tokens[len]);
             }
-            return createNode(Assignment, tokens, tokens[0].name === 'const', createNode(Identifier, tokens[1], tokens[1].name), expr);
+            return createNode(Assignment, tokens, true, tokens[0].name === 'const', createNode(Identifier, tokens[1], tokens[1].name), expr);
         } else if (tokens[2].type === 'Identifier') {
             return parseTypedAssignment(tokens.slice(1) as TokenList<t.Identifier>, tokens[0].name === 'const');
         } else {
@@ -316,8 +327,10 @@ export function parseCodeBlock(tokens: t.Token[], startIndex: number = 0, endAtB
     let buffer: t.Token[] = [];
     for (let i = startIndex; i < tokens.length; i++) {
         let token = tokens[i];
-        if (token.type === 'Semicolon' && braceCount === 0) {
-            out.push(parseStatement(tokens));
+        if (token.type === 'Space' || token.type === 'Newline') {
+            continue;
+        } else if (token.type === 'Semicolon' && braceCount === 0) {
+            out.push(parseStatement(buffer));
             buffer = [];
         } else {
             buffer.push(token);
@@ -338,11 +351,13 @@ export function parseCodeBlock(tokens: t.Token[], startIndex: number = 0, endAtB
     return [out, tokens.length];
 }
 
-export function createASTFromTokens(tokens: t.Token[]): Program {
+export function tokensToAST(tokens: t.Token[]): Program {
     return createNode(Program, tokens, parseCodeBlock(tokens)[0]);
 }
 
 
-export function parse(code: string): Program {
-    return createASTFromTokens(t.tokenize(code));
+export function codeToAST(code: string): Program {
+    return tokensToAST(t.tokenize(code));
 }
+
+export {codeToAST as parse};
