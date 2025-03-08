@@ -86,12 +86,12 @@ export class CodeStream {
 
 
 
-export class $SyntaxError extends Error {
+export class SyntaxError_ extends Error {
 
     line: number;
     col: number;
 
-    constructor(message: string, line: number, col: number) {
+    constructor(message: string, {line, col}: {line: number, col: number}) {
         super(message);
         this.line = line;
         this.col = col;
@@ -155,7 +155,7 @@ export let StringLiteral = createTokenFactory<StringLiteral>('StringLiteral', 'v
 export type NumberLiteral = CreateTokenType<'NumberLiteral', {value: string, flags: string}>;
 export let NumberLiteral = createTokenFactory<NumberLiteral>('NumberLiteral', 'value', 'flags');
 
-export type Keyword = CreateTokenType<'Keyword', {name: string}>;
+export type Keyword<T extends typeof KEYWORDS[number] = typeof KEYWORDS[number]> = CreateTokenType<'Keyword', {name: string}>;
 export let Keyword = createTokenFactory<Keyword>('Keyword', 'name');
 
 export type Operator = CreateTokenType<'Operator', {op: string}>;
@@ -257,7 +257,7 @@ export function tokenize(code: string | CodeStream): Token[] {
         } else if (match = code.match(/((-?[1-9][0-9]*(\.[0-9]+)?|0b[01]+|0o[0-7]+|0x[0-9A-Fa-f]+))([nfd]|u?[bsil])?/)) {
             code.token(NumberLiteral, match[1], match[2]);
         } else {
-            throw new $SyntaxError('cannot find token', code.line, code.col);
+            throw new SyntaxError_('cannot find token', code);
         }
     }
     return code.tokens;
