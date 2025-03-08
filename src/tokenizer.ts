@@ -147,10 +147,12 @@ export type Period = CreateTokenType<'Period'>;
 export let Period = createTokenFactory<Period>('Period');
 export type Comma = CreateTokenType<'Comma'>;
 export let Comma = createTokenFactory<Comma>('Comma');
+export type Equals = CreateTokenType<'Equals'>;
+export let Equals = createTokenFactory<Equals>('Equals');
 
 export type StringLiteral = CreateTokenType<'StringLiteral', {value: string}>;
 export let StringLiteral = createTokenFactory<StringLiteral>('StringLiteral', 'value');
-export type NumberLiteral = CreateTokenType<'NumberLiteral', {value: bigint, flags: string}>;
+export type NumberLiteral = CreateTokenType<'NumberLiteral', {value: string, flags: string}>;
 export let NumberLiteral = createTokenFactory<NumberLiteral>('NumberLiteral', 'value', 'flags');
 
 export type Keyword = CreateTokenType<'Keyword', {name: string}>;
@@ -162,7 +164,7 @@ export let Operator = createTokenFactory<Operator>('Operator', 'op');
 export type Identifier = CreateTokenType<'Identifier', {name: string}>;
 export let Identifier = createTokenFactory<Identifier>('Identifier', 'name');
 
-export type Token = Whitespace | Semicolon | LeftParen | RightParen | LeftBracket | RightBracket | LeftBrace | RightBrace | Period | Comma | StringLiteral | NumberLiteral | Keyword | Operator | Identifier;
+export type Token = Whitespace | Semicolon | LeftParen | RightParen | LeftBracket | RightBracket | LeftBrace | RightBrace | Period | Comma | Equals | StringLiteral | NumberLiteral | Keyword | Operator | Identifier;
 
 
 const ESCAPE_CODES: {[key: string]: string} = {
@@ -205,9 +207,9 @@ function extractString(code: CodeStream, endsWith: string): string {
 }
 
 
-const KEYWORDS = ['const', 'if', 'else', 'for', 'while', 'return', 'def', 'in', 'typeof', 'extends', 'instanceof', 'subclassof', 'type', 'interface', 'use', 'class', 'break', 'continue', 'async', 'await', 'yield', 'switch', 'case', 'throw', 'try', 'catch', 'finally', 'enum', 'super', 'abstract'];
+const KEYWORDS = ['let', 'const', 'if', 'else', 'for', 'while', 'return', 'def', 'in', 'typeof', 'extends', 'instanceof', 'subclassof', 'type', 'interface', 'use', 'class', 'break', 'continue', 'async', 'await', 'yield', 'switch', 'case', 'throw', 'try', 'catch', 'finally', 'enum', 'super', 'abstract'];
 
-const OPERATORS = ['++', '--', '&&', '||', '^^', '==', '!=', '<=', '>=', '+', '-', '*', '/', '**', '%', '&', '|', '^', '!', '~', '<', '>', '?', ':', '='];
+const OPERATORS = ['++', '--', '&&', '||', '^^', '==', '!=', '<=', '>=', '**', '+', '-', '*', '/', '%', '&', '|', '^', '!', '~', '<', '>', '?', ':'];
 
 export function tokenize(code: string | CodeStream): Token[] {
     if (typeof code === 'string') {
@@ -240,6 +242,8 @@ export function tokenize(code: string | CodeStream): Token[] {
             code.token(LeftBrace);
         } else if (code.eat('}')) {
             code.token(RightBrace);
+        } else if (code.eat('=')) {
+            code.token(Equals);
         } else if (code.eat('[')) {
             code.token(LeftBracket);
         } else if (code.eat(']')) {
@@ -250,8 +254,8 @@ export function tokenize(code: string | CodeStream): Token[] {
             code.token(StringLiteral, extractString(code, "'"));
         } else if (code.eat('"')) {
             code.token(StringLiteral, extractString(code, '"'));
-        } else if (match = code.match(/(-?[1-9][0-9]*(\.[0-9]+)?|0b[01]+|0o[0-7]+|0x[0-9A-Fa-f]+)/)) {
-            code.token(NumberLiteral, BigInt(match[1]), match[2]);
+        } else if (match = code.match(/((-?[1-9][0-9]*(\.[0-9]+)?|0b[01]+|0o[0-7]+|0x[0-9A-Fa-f]+))[bsilnfd]?/)) {
+            code.token(NumberLiteral, match[1], match[2]);
         } else {
             throw new $SyntaxError('cannot find token', code.line, code.col);
         }
