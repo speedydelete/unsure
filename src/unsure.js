@@ -150,9 +150,9 @@ Object.defineProperty(baseObject, Symbol.toPrimitive, {value: function() {
 // all unsure variables start with $
 let $any = Object.assign(Object.create(null), baseObject, {
     [s.name]: 'any',
-    [s.call]() {
+    [s.call](...args) {
         let out = Object.create(this[s.prototype]);
-        out[s.init]();
+        out[s.init](...args);
         out[s.constructor] = this;
         return out;
     },
@@ -164,35 +164,41 @@ let $any = Object.assign(Object.create(null), baseObject, {
             out[s.constructor] = this;
             return out;
         },
-        prototype: Object.assign(Object.create(null), baseObject),
+        [s.prototype]: Object.assign(Object.create(null), baseObject),
     }),
 });
 let any = $any[s.call].bind($any);
 
+function createSubclass(class_, name, prototype, static = {}) {
+    let out = class_[s.call]();
+    out[s.name] = name;
+    Object.assign(out[s.prototype], prototype);
+    Object.assign(out, static);
+    return out;
+}
+
 // function
-let $function = Object.assign(any(), {
-    [s.name]: 'function',
-    [s.prototype]: {
-        name: '',
-        [s.init](...args) {
-            if (typeof args[0] === 'function') {
-                this[s.call] = args[0];
-                this.name = args[1] ?? args[0].name;
-            } else {
-                this.name = '<anonymous function>';
-                this[s.call] = args.length > 0 ? new Function(...args) : () => {};
-            }
-        },
+let $function = createSubclass($any, 'function', {
+    name: '',
+    [s.init](...args) {
+        if (typeof args[0] === 'function') {
+            this[s.call] = args[0];
+            this.name = args[1] ?? args[0].name;
+        } else {
+            this.name = '<anonymous function>';
+            this[s.call] = args.length > 0 ? new Function(...args) : () => {};
+        }
     },
 });
 let func = $function[s.call].bind($function);
 
+// any methods
 $any.no_proto = func(function(properties) {
     return Object.assign(Object.create(null), properties);
 }, 'any.no_proto');
 
 // unknown, any but with type checking
-let $unknown = Object.assign(any(), {
+let $unknown = createSubclass($any, 'unknown', {
     [s.name]: 'unknown',
     [s.prototype]: {
         [s.repr]() {
@@ -204,15 +210,12 @@ let $unknown = Object.assign(any(), {
 let unknown = $unknown[s.call].bind($unknown);
 
 // null
-let $null = Object.assign(any(), {
-    [s.name]: 'null',
-    [s.prototype]: {
-        [s.repr]() {
-            return string('null');
-        },
-        [s.to_boolean]() {
-            return boolean(false);
-        },
+let $null = createSubclass($any, 'null', {
+    [s.repr]() {
+        return string('null');
+    },
+    [s.to_boolean]() {
+        return boolean(false);
     },
 })[s.call]();
 
@@ -221,82 +224,79 @@ let $null = Object.assign(any(), {
 let number_value = get_internal_symbol('number_value'); // the actual place where the value is stored
 let get_number = get_internal_symbol('get_number'); // should be a function returning a JavaScript number
 let set_number = get_internal_symbol('set_number'); // should be a function taking in a JavaScript number
-let $number = Object.assign(any(), {
-    [s.name]: 'number',
-    [s.prototype]: {
-        [s.init](value) {
-            if (typeof value === 'number' || typeof value === 'bigint') {
-                this[set_number](value);
-            } else if (get_number in value) {
-                this[set_number](value[get_number]);
-            } else {
-                throw new UnsureError('TypeError', `invalid type for casting to number: ${value[s.constructor][s.name]}`);
-            }
-        },
-        // default values (for typed arrays)
-        [s.get_number]() {
-            return this[s.number_value][0];
-        },
-        [s.set_number](value) {
-            this[s.number_value][0] = value;  
-        },
-        [s.to_boolean]() {
-            return boolean(this[get_number]() !== 0);
-        },
-        [s.gt](other) {
-            return boolean(this[get_number]() > other[get_number]());
-        },
-        [s.ge]() {
-            return boolean(this[get_number]() >= other[get_number]());
-        },
-        [s.lt](other) {
-            return boolean(this[get_number]() < other[get_number]());
-        },
-        [s.le](other) {
-            return boolean(this[get_number]() <= other[get_number]());
-        },
-        [s.and](other) {
-            return this[s.type_of](this[get_number]() & other[get_number]());
-        },
-        [s.or](other) {
-            return this[s.type_of](this[get_number]() | other[get_number]());
-        },
-        [s.xor](other) {
-            return this[s.type_of](this[get_number]() ^ other[get_number]());
-        },
-        [s.not]() {
-            return this[s.type_of](~this[get_number]());
-        },
-        [s.add](other) {
-            return this[s.type_of](this[get_number]() + other[get_number]());
-        },
-        [s.sub](other) {
-            return this[s.type_of](this[get_number]() - other[get_number]());
-        },
-        [s.increment]() {
-            return this[s.type_of](this[get_number]()++);
-        },
-        [s.decrement]() {
-            return this[s.type_of](this[get_number]()--);
-        },
-        [s.unary_plus]() {
-            return this[s.type_of](+this[get_number]());
-        },
-        [s.unary_minus]() {
-            return this[s.type_of](-this[get_number]());
-        },
-        [s.mul](other) {
-            return this[s.type_of](this[get_number]() * other[get_number]());
-        },
-        [s.div](other) {
-            return this[s.type_of](this[get_number]() / other[get_number]());
-        },
-        [s.mod](other) {
-            return this[s.type_of](this[get_number]() % other[get_number]());
-        },
-        [s.exp](other) {
-            return this[s.type_of](this[get_number]() ** other[get_number]());
-        },
+let $number = createSubclass($any, 'number', {
+    [s.init](value) {
+        if (typeof value === 'number' || typeof value === 'bigint') {
+            this[set_number](value);
+        } else if (get_number in value) {
+            this[set_number](value[get_number]);
+        } else {
+            throw new UnsureError('TypeError', `invalid type for casting to number: ${value[s.constructor][s.name]}`);
+        }
+    },
+    // default values (for typed arrays)
+    [s.get_number]() {
+        return this[s.number_value][0];
+    },
+    [s.set_number](value) {
+        this[s.number_value][0] = value;  
+    },
+    [s.to_boolean]() {
+        return boolean(this[get_number]() !== 0);
+    },
+    [s.gt](other) {
+        return boolean(this[get_number]() > other[get_number]());
+    },
+    [s.ge]() {
+        return boolean(this[get_number]() >= other[get_number]());
+    },
+    [s.lt](other) {
+        return boolean(this[get_number]() < other[get_number]());
+    },
+    [s.le](other) {
+        return boolean(this[get_number]() <= other[get_number]());
+    },
+    [s.and](other) {
+        return this[s.type_of](this[get_number]() & other[get_number]());
+    },
+    [s.or](other) {
+        return this[s.type_of](this[get_number]() | other[get_number]());
+    },
+    [s.xor](other) {
+        return this[s.type_of](this[get_number]() ^ other[get_number]());
+    },
+    [s.not]() {
+        return this[s.type_of](~this[get_number]());
+    },
+    [s.add](other) {
+        return this[s.type_of](this[get_number]() + other[get_number]());
+    },
+    [s.sub](other) {
+        return this[s.type_of](this[get_number]() - other[get_number]());
+    },
+    [s.increment]() {
+        return this[s.type_of](this[get_number]()++);
+    },
+    [s.decrement]() {
+        return this[s.type_of](this[get_number]()--);
+    },
+    [s.unary_plus]() {
+        return this[s.type_of](+this[get_number]());
+    },
+    [s.unary_minus]() {
+        return this[s.type_of](-this[get_number]());
+    },
+    [s.mul](other) {
+        return this[s.type_of](this[get_number]() * other[get_number]());
+    },
+    [s.div](other) {
+        return this[s.type_of](this[get_number]() / other[get_number]());
+    },
+    [s.mod](other) {
+        return this[s.type_of](this[get_number]() % other[get_number]());
+    },
+    [s.exp](other) {
+        return this[s.type_of](this[get_number]() ** other[get_number]());
     },
 });
 
@@ -418,6 +418,23 @@ let $unsigned_long = Object.assign(Object.create($number), {
 });
 let unsigned_long = $unsigned_long[s.call].bind($unsigned_long);
 
+// bigint
+let $bigint = createSubclass($number, 'bigint', {
+    [s.init](value) {
+        this[s.number_value] = BigInt(value);
+    },
+    [s.repr]() {
+        return string(this[s.number_value] + (INT_IS_INT32 ? 'n' : ''));
+    },
+    [s.get_number]() {
+        return this[s.number_value];
+    },
+    [s.set_number](value) {
+        this[s.number_value] = value;
+    },
+});
+let bigint = $bigint[s.call].bind($bigint);
+
 // float32
 let $float32 = Object.assign(Object.create($number), {
     [s.name]: 'float32',
@@ -446,26 +463,6 @@ let $double = Object.assign(Object.create($number), {
 });
 let double = $double[s.call].bind($double);
 
-// bigint
-let $bigint = Object.assign(Object.create($number), {
-    [s.name]: 'bigint',
-    [s.prototype]: {
-        [s.init](value) {
-            this[s.number_value] = BigInt(value);
-        },
-        [s.repr]() {
-            return string(this[s.number_value] + (INT_IS_INT32 ? 'n' : ''));
-        },
-        [s.get_number]() {
-            return this[s.number_value];
-        },
-        [s.set_number](value) {
-            this[s.number_value] = value;
-        },
-    },
-});
-let bigint = $bigint[s.call].bind($bigint);
-
 let $int = INT_IS_INT32 ? $int32 : $bigint;
 let $float = FLOAT_IS_FLOAT32 ? $float32 : $double;
 
@@ -491,7 +488,7 @@ let boolean = $boolean[s.call].bind($boolean);
 
 // symbol
 let is_for = get_internal_symbol('is_for'); // used to determine whether it was made with symbol.for
-let $symbol = Object.assign(any(), {
+let $symbol = createSubclass($any, '', {
     [s.name]: 'symbol',
     [s.prototype]: {
         [s.init](value = '') {
@@ -522,7 +519,7 @@ let $symbol = Object.assign(any(), {
 let symbol = $symbol[s.call].bind($symbol);
 
 // string
-let $string = Object.assign(any(), {
+let $string = createSubclass($any, '', {
     [s.name]: 'string',
     [s.prototype]: {
         [s.init](value) {
@@ -579,7 +576,7 @@ let $string = Object.assign(any(), {
 let string = $string[s.call].bind($string);
 
 // object
-let $object = Object.assign(any(), {
+let $object = createSubclass($any, '', {
     [s.name]: 'object',
     [s.prototype]: {
         [s.init](...args) {
@@ -597,7 +594,7 @@ let $object = Object.assign(any(), {
 let object = $object[s.call].bind($object);
 
 // array
-let $array = Object.assign(any(), {
+let $array = createSubclass($any, '', {
     [s.name]: 'array',
     [s.prototype]: {
         [s.init](...args) {
