@@ -71,7 +71,17 @@ export type AST = Program | Statement;
 
 
 export function createAST(tokens: t.Token[]): Program {
-    return Program('', 0, 0, []);
+    let statements: Statement[] = [];
+    let braceCount = 0;
+    let buffer: t.Token[] = [];
+    for (let token of tokens) {
+        if (token.type === 'Space' || token.type === 'Newline') {
+            continue;
+        } else if (token.type === 'Semicolon' && braceCount === 0) {
+            buffer.push(token);
+        }
+    }
+    return Program(tokens.map(x => x.raw).join(''), 0, 0, statements);
 }
 
 

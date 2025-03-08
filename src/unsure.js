@@ -20,7 +20,7 @@ let s = Object.fromEntries([
     // math
     'mul', 'div', 'mod', 'exp', 'and', 'or', 'xor',
     // iterators
-    'to_iterator', 'contains', 'get_item', 'set_item', 'get_slice', 'set_slice',
+    'to_iterator', 'length', 'contains', 'get_item', 'set_item', 'get_slice', 'set_slice',
 ].map(key => [key, Symbol.for('unsure.unsure.' + key)]));
 function get_internal_symbol(name) {
     return Symbol.for('unsure.unsure.__REFERENCE_IMPLEMENTATION_DETAILS.' + name);
@@ -57,7 +57,7 @@ let baseObject = Object.assign(Object.create(null), {
         this[typeof name === 'string' ? name : name[s.to_string][value]] = value;
     },
     [s.hasattr](name) {
-        return $boolean[s.call]((typeof name === 'string' ? name : name[s.to_string][value]) in this);  
+        return boolean((typeof name === 'string' ? name : name[s.to_string][value]) in this);  
     },
     [s.is_instance](value) {
         return value[s.has_instance](this);
@@ -84,29 +84,29 @@ let baseObject = Object.assign(Object.create(null), {
         return;
     },
     [s.repr]() {
-        return $string[s.call]('[{name} does not implement symbol.repr]');
+        return string('[{name} does not implement symbol.repr]');
     },
     [s.to_string]() {
         return this[s.repr]();
     },
     [s.to_boolean]() {
-        return $boolean[s.call](true);
+        return boolean(true);
     },
     [s.call]: errorFactory('TypeError', '{name} is not callable'),
     [s.boolean_and](value) {
-        return $boolean[s.call](this)[s.boolean_and](value);
+        return boolean(this)[s.boolean_and](value);
     },
     [s.boolean_or](value) {
-        return $boolean[s.call](this)[s.boolean_or](value);
+        return boolean(this)[s.boolean_or](value);
     },
     [s.boolean_xor](value) {
-        return $boolean[s.call](this)[s.boolean_xor](value);
+        return boolean(this)[s.boolean_xor](value);
     },
     [s.boolean_not]() {
-        return $boolean[s.call](this)[s.boolean_not]();
+        return boolean(this)[s.boolean_not]();
     },
     [s.eq](value) {
-        return $boolean[s.call](this === value);
+        return boolean(this === value);
     },
     [s.ne](value) {
         return this[s.eq](value)[s.boolean_not]();
@@ -136,6 +136,10 @@ let baseObject = Object.assign(Object.create(null), {
     [s.get_slice]: errorFactory('TypeError', '{name} is not iterable'),
     [s.set_slice]: errorFactory('TypeError', '{name} is not iterable'),
 });
+// make it so that ((falsy Unsure object) == false) is true
+Object.defineProperty(baseObject, Symbol.toPrimitive, {value: function() {
+    return this[s.to_boolean][value];
+}});
 
 // any, global metaclass
 // all unsure variables start with $
@@ -157,31 +161,33 @@ let $any = Object.assign(Object.create(null), baseObject, {
         },
         prototype: Object.assign(Object.create(null), baseObject),
     }),
-    no_proto: $function(function(properties) {
+    no_proto: func(function(properties) {
         return Object.assign(Object.create(null), properties);
     }, 'any.no_proto'),
 });
+let any = $any[s.call];
 
 // unknown, any but with type checking
-let $unknown = Object.assign($any[s.call](), {
+let $unknown = Object.assign(any(), {
     [s.name]: 'unknown',
     [s.prototype]: {
         [s.repr]() {
-            return $string[s.call]('unknown');
+            return string('unknown');
         },
         [s.force_type_checking]: true,
     },
 })[s.call]();
+let unknown = $unknown[s.call];
 
 // null
 let $null = Object.assign(Object.create($any), {
     [s.name]: 'null',
     [s.prototype]: {
         [s.repr]() {
-            return $string[s.call]('null');
+            return string('null');
         },
         [s.to_boolean]() {
-            return $boolean[s.call](false);
+            return boolean(false);
         },
     },
 })[s.call]();
@@ -191,7 +197,7 @@ let $null = Object.assign(Object.create($any), {
 let number_value = get_internal_symbol('number_value'); // the actual place where the value is stored
 let get_number = get_internal_symbol('get_number'); // should be a function returning a JavaScript number
 let set_number = get_internal_symbol('set_number'); // should be a function taking in a JavaScript number
-let $number = Object.assign($any[s.call](), {
+let $number = Object.assign(any(), {
     [s.name]: 'number',
     [s.prototype]: {
         // default values (for typed arrays)
@@ -202,7 +208,7 @@ let $number = Object.assign($any[s.call](), {
             this[s.number_value][0] = value;  
         },
         [s.to_boolean]() {
-            return $boolean[s.call](this[get_number]() !== 0);
+            return boolean(this[get_number]() !== 0);
         },
         [s.init](value) {
             if (typeof value === 'number') {
@@ -212,16 +218,16 @@ let $number = Object.assign($any[s.call](), {
             } 
         },
         [s.gt](other) {
-            return $boolean[s.call](this[get_number]() > other[get_number]());
+            return boolean(this[get_number]() > other[get_number]());
         },
         [s.ge]() {
-            return $boolean[s.call](this[get_number]() >= other[get_number]());
+            return boolean(this[get_number]() >= other[get_number]());
         },
         [s.lt](other) {
-            return $boolean[s.call](this[get_number]() < other[get_number]());
+            return boolean(this[get_number]() < other[get_number]());
         },
         [s.le](other) {
-            return $boolean[s.call](this[get_number]() <= other[get_number]());
+            return boolean(this[get_number]() <= other[get_number]());
         },
         [s.and](other) {
             return this[s.type_of](this[get_number]() & other[get_number]());
@@ -282,10 +288,11 @@ let $byte = Object.assign(Object.create($number), {
             this[s.number_value] = new Int8Array([value]);
         },
         [s.repr]() {
-            return $string[s.call](this[s.number_value] + 'b');
+            return string(this[s.number_value] + 'b');
         },
     },
 });
+let byte = $byte[s.call];
 
 // unsigned_byte
 let $unsigned_byte = Object.assign(Object.create($number), {
@@ -295,10 +302,11 @@ let $unsigned_byte = Object.assign(Object.create($number), {
             this[s.number_value] = new Uint8Array([value]);
         },
         [s.repr]() {
-            return $string[s.call](this[s.number_value] + 'ub');
+            return string(this[s.number_value] + 'ub');
         },
     },
 });
+let unsigned_byte = $unsigned_byte[s.call];
 
 // short
 let $short = Object.assign(Object.create($number), {
@@ -308,10 +316,11 @@ let $short = Object.assign(Object.create($number), {
             this[s.number_value] = new Int16Array([value]);
         },
         [s.repr]() {
-            return $string[s.call](this[s.number_value] + 's');
+            return string(this[s.number_value] + 's');
         },
     },
 });
+let short = $short[s.call];
 
 // unsigned_short
 let $unsigned_short = Object.assign(Object.create($number), {
@@ -321,10 +330,11 @@ let $unsigned_short = Object.assign(Object.create($number), {
             this[s.number_value] = new Uint16Array([value]);
         },
         [s.repr]() {
-            return $string[s.call](this[s.number_value] + 'us');
+            return string(this[s.number_value] + 'us');
         },
     },
 });
+let unsigned_short = $unsigned_short[s.call];
 
 // int32
 let $int32 = Object.assign(Object.create($number), {
@@ -334,10 +344,11 @@ let $int32 = Object.assign(Object.create($number), {
             this[s.number_value] = new Int32Array([value]);
         },
         [s.repr]() {
-            return $string[s.call](this[s.number_value] + (INT_IS_INT32 ? '' : 'i'));
+            return string(this[s.number_value] + (INT_IS_INT32 ? '' : 'i'));
         },
     },
 });
+let int32 = $int32[s.call];
 
 // unsigned_int32
 let $unsigned_int32 = Object.assign(Object.create($number), {
@@ -347,10 +358,11 @@ let $unsigned_int32 = Object.assign(Object.create($number), {
             this[s.number_value] = new Uint32Array([value]);
         },
         [s.repr]() {
-            return $string[s.call](this[s.number_value] + 'u' + (INT_IS_INT32 ? '' : 'i'));
+            return string(this[s.number_value] + 'u' + (INT_IS_INT32 ? '' : 'i'));
         },
     },
 });
+let unsigned_int32 = $unsigned_int32[s.call];
 
 // long
 let $long = Object.assign(Object.create($number), {
@@ -360,10 +372,11 @@ let $long = Object.assign(Object.create($number), {
             this[s.number_value] = new BigInt64Array([value]);
         },
         [s.repr]() {
-            return $string[s.call](this[s.number_value] + 'l');
+            return string(this[s.number_value] + 'l');
         },
     },
 });
+let long = $long[s.call];
 
 // unsigned_long
 let $unsigned_long = Object.assign(Object.create($number), {
@@ -373,10 +386,11 @@ let $unsigned_long = Object.assign(Object.create($number), {
             this[s.number_value] = new BigUint64Array([value]);
         },
         [s.repr]() {
-            return $string[s.call](this[s.number_value] + 'ul');
+            return string(this[s.number_value] + 'ul');
         },
     },
 });
+let unsigned_long = $long[s.call];
 
 // float32
 let $float32 = Object.assign(Object.create($number), {
@@ -386,10 +400,11 @@ let $float32 = Object.assign(Object.create($number), {
             this[s.number_value] = new Float32Array([value]);
         },
         [s.repr]() {
-            return $string[s.call](this[s.number_value] + (FLOAT_IS_FLOAT32 ? '' : 'f'));
+            return string(this[s.number_value] + (FLOAT_IS_FLOAT32 ? '' : 'f'));
         },
     },
 });
+let float32 = $float32[s.call];
 
 // double
 let $double = Object.assign(Object.create($number), {
@@ -399,10 +414,11 @@ let $double = Object.assign(Object.create($number), {
             this[s.number_value] = new Float64Array([value]);
         },
         [s.repr]() {
-            return $string[s.call](this[s.number_value] + (FLOAT_IS_FLOAT32 ? 'd' : ''));
+            return string(this[s.number_value] + (FLOAT_IS_FLOAT32 ? 'd' : ''));
         },
     },
 });
+let double = $double[s.call];
 
 // bigint
 let $bigint = Object.assign(Object.create($number), {
@@ -412,7 +428,7 @@ let $bigint = Object.assign(Object.create($number), {
             this[s.number_value] = BigInt(value);
         },
         [s.repr]() {
-            return $string[s.call](this[s.number_value] + (INT_IS_INT32 ? 'n' : ''));
+            return string(this[s.number_value] + (INT_IS_INT32 ? 'n' : ''));
         },
         [s.get_number]() {
             return this[s.number_value];
@@ -422,6 +438,7 @@ let $bigint = Object.assign(Object.create($number), {
         },
     },
 });
+let bigint = $bigint[s.call];
 
 let $int = INT_IS_INT32 ? $int32 : $bigint;
 let $float = FLOAT_IS_FLOAT32 ? $float32 : $double;
@@ -434,7 +451,7 @@ let $boolean = Object.assign(Object.create($number), {
             this[s.number_value] = (typeof value === 'object' && value !== null) ? value[s.to_boolean]()[s.number_value] : Boolean(value);
         },
         [s.to_string]() {
-            return $string[s.call](this[s.number_value] ? 'true' : 'false');
+            return string(this[s.number_value] ? 'true' : 'false');
         },
         [s.get_number]() {
             return this[s.number_value];
@@ -444,35 +461,42 @@ let $boolean = Object.assign(Object.create($number), {
         },
     },
 });
+let boolean = $boolean[s.call];
 
 // symbol
 let is_for = get_internal_symbol('is_for'); // used to determine whether it was made with symbol.for
-let $symbol = Object.assign($any[s.call](), {
+let $symbol = Object.assign(any(), {
     [s.name]: 'symbol',
     [s.prototype]: {
         [s.init](value = '') {
+            if (typeof value === 'symbol') {
+                this[value] = value;
+                this.name = value.description;
+                this[is_for] = value === Symbol.for(value.description);
+            }
             this.name = value;
             this[value] = Symbol(value);
             this[is_for] = false;
         },
         [s.repr]() {
-            return $string[s.call](this[is_for] ? `symbol(${this.name})` : `symbol.for(${this.name})`);
+            return string(this[is_for] ? `symbol(${this.name})` : `symbol.for(${this.name})`);
         },
         [s.eq](other) {
             return this[value] === other[value];
         },
     },
-    for: $function(function(name) {
+    for: func(function(name) {
         let out = this[s.call](name);
         out[value] = Symbol.for('unsure.' + name);
         out[is_for] = true;
         return out;
     }, 'symbol.for'),
-    ...s,
+    ...s.map(symbol),
 });
+let symbol = $symbol[s.call];
 
 // string
-let $string = Object.assign($any[s.call](), {
+let $string = Object.assign(any(), {
     [s.name]: 'string',
     [s.prototype]: {
         [s.init](value) {
@@ -482,14 +506,54 @@ let $string = Object.assign($any[s.call](), {
                 this[value] = value;
             }
         },
+        [s.to_iterator]() {
+            let i = 0;
+            let data = this[value];
+            return {
+                next() {
+                    let out = data[i];
+                    i++;
+                    if (i === data.length) {
+                        this.done = true;
+                    }
+                    return out;
+                },
+                done: false,
+            };
+        },
         [s.to_string]() {
-            return $string[s.call](this[value]);
-        }
+            return string(this[value]);
+        },
+        [s.length]() {
+            return int32(this[value].length);
+        },
+        [s.contains](other) {
+            return boolean(this[value].includes(other));
+        },
+        [s.get_item](index) {
+            return string(this[value][index[value]]);
+        },
+        [s.set_item]() {
+            throw new UnsureError('TypeError', 'strings are not mutable');
+        },
+        [s.get_slice](start, stop) {
+            return string(this[value].slice(start[value], stop[value]));
+        },
+        [s.set_slice]() {
+            throw new UnsureError('TypeError', 'strings are not mutable');
+        },
+        upper: func(function() {
+            return string(this[value].toUpperCase());
+        }, '[string].upper'),
+        lower: func(function() {
+            return string(this[value].toLowerCase());
+        }, '[string].lower'),
     },
 });
+let string = $string[s.call];
 
 // function
-let $function = Object.assign($any[s.call](), {
+let $function = Object.assign(any(), {
     [s.name]: 'function',
     [s.prototype]: {
         name: '',
@@ -504,25 +568,28 @@ let $function = Object.assign($any[s.call](), {
         },
     },
 });
+let func = $function[s.call];
 
 // object
-let $object = Object.assign($any[s.call](), {
+let $object = Object.assign(any(), {
     [s.name]: 'object',
     [s.prototype]: {
         [s.init](...args) {
-            if (!([s.to_string] in args[0])) {
+            if (!([s.to_string] in args[0])) { // checks if unsure object
                 Object.assign(this, args[0]);
             } else {
                 for (let item of args[s.to_iterator]) {
                     this[item[s.get_item](0)] = item[s.get_item](1);
                 }
             }
-        }
-    }
+        },
+    },
+    assign: func(Object.assign, 'object.assign'),
 });
+let object = $object[s.call];
 
 // array
-let $array = Object.assign($any[s.call](), {
+let $array = Object.assign(any(), {
     [s.name]: 'array',
     [s.prototype]: {
         [s.init](...args) {
@@ -543,11 +610,14 @@ let $array = Object.assign($any[s.call](), {
                 done: false,
             };
         },
+        [s.length]() {
+            return int32(this[value].length);
+        },
         [s.contains](other) {
             return this[value].includes(other);
         },
         [s.get_item](index) {
-            let out = this[value][index];
+            let out = this[value][index[value]];
             if (out === undefined) {
                 throw new UnsureError('IndexError', `array index out of range: ${index}`);
             } else {
@@ -555,10 +625,14 @@ let $array = Object.assign($any[s.call](), {
             }
         },
         [s.set_item](index, other) {
+            index = index[value];
+            if (index < 0) {
+                index = this[value].length - index;
+            }
             this[value][index] = other;
         },
         [s.get_slice](start, stop) {
-            return $array(...this[value].slice(start, stop));
+            return array(...this[value].slice(start, stop));
         },
         [s.set_slice](start, stop, other) {
             for (let i = 0; i < (stop - start); i++) {
@@ -567,3 +641,4 @@ let $array = Object.assign($any[s.call](), {
         },
     },
 });
+let array = $array[s.call];

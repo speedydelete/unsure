@@ -254,7 +254,7 @@ export function tokenize(code: string | CodeStream): Token[] {
             code.token(StringLiteral, extractString(code, "'"));
         } else if (code.eat('"')) {
             code.token(StringLiteral, extractString(code, '"'));
-        } else if (match = code.match(/((-?[1-9][0-9]*(\.[0-9]+)?|0b[01]+|0o[0-7]+|0x[0-9A-Fa-f]+))[bsilnfd]?/)) {
+        } else if (match = code.match(/((-?[1-9][0-9]*(\.[0-9]+)?|0b[01]+|0o[0-7]+|0x[0-9A-Fa-f]+))([nfd]|u?[bsil])?/)) {
             code.token(NumberLiteral, match[1], match[2]);
         } else {
             throw new $SyntaxError('cannot find token', code.line, code.col);
