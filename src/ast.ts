@@ -86,8 +86,41 @@ export function createNode<T extends typeof StringLiteral | typeof NumberLiteral
     }
 }
 
+export function parseSimpleExpression(tokens: (t.Token | Expression)[]): Expression {
+    
+}
+
+type RecursiveToken = t.Token | RecursiveToken[];
+
 export function parseExpression(tokens: t.Token[], startIndex: number = 0, endAtParen: boolean = false): [Expression, number] {
-    let parens = endAtParen ? 1 : 0;
+    let wasIdentifier = false;
+    let out: (t.Token | Expression)[] = [];
+    for (let i = 0; i < tokens.length; i++) {
+        let token = tokens[i];
+        if (token.type === 'LeftParen') {
+            if (wasIdentifier) {
+                wasIdentifier = false;
+            } else {
+                let [expr, len] = parseExpression(tokens, i, true);
+                out.push(expr);
+                i = len - 1;
+            }
+        } else if (token.type === 'RightParen') {
+            if (endAtParen) {
+                return [parseSimpleExpression(out), i];
+            } else {
+                throw new SyntaxError_('mismatched parentheses', token);
+            }
+        } else {
+            out.push(token);
+            if (token.type === 'Identifier') {
+                wasIdentifier = true;
+            } else {
+                wasIdentifier = false;
+            }
+        }
+    }
+    return [parseSimpleExpression(out), tokens.length];
 }
 
 export function parseTypedAssignment(tokens: TokenList<t.Identifier>, const_: boolean): TypedAssignment {
@@ -177,8 +210,8 @@ export function parseCodeBlock(tokens: t.Token[], startIndex: number = 0, endAtB
                     if (endAtBrace) {
                         return [out, i];
                     } else {
-                        throw new SyntaxError_('mismatched parentheses or braces', token);
-                    }
+                        throw new SyntaxError_('mismatched parentheses and/or braces', token);
+                   }
                 }
             }
         }
