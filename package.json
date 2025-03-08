@@ -1,52 +1,32 @@
 {
   "name": "unsure-lang",
   "version": "0.2.0",
-  "description": "Programming language",
-  "keywords": ["unsure", "language"],
-  "homepage": "https://github.com/speedydelete/unsure#readme",
-  "bugs": {
-    "url": "https://github.com/speedydelete/unsure/issues"
-  },
+  "description": "The Unsure programming language",
   "license": "MIT",
   "author": "speedydelete",
-  "files": [
-    "dist/**/*"
-  ],
+  "type": "commonjs",
+  "main": "lib/index.js",
   "exports": {
-    ".": "./dist/index.js",
-    "./interpreter": "./dist/interpreter.js",
-    "./interpreter.js": "./dist/interpreter.js",
-    "./interpreter.ts": "./dist/interpreter.ts",
-    "./ast": "./dist/ast.js",
-    "./ast.js": "./dist/ast.js",
-    "./ast.ts": "./dist/ast.ts",
-    "./tokenizer": "./dist/tokenizer.js",
-    "./tokenizer.js": "./dist/tokenizer.js",
-    "./tokenizer.ts": "./dist/tokenizer.js",
-    "./cli": "./dist/cli.js",
-    "./cli.js": "./dist/cli.js",
-    "./cli.ts": "./dist/cli.js"
+    ".": "./lib/index.js"
   },
-  "main": "./dist/index.js",
-  "bin": {
-    "unsure": "./dist/cli.js"
-  },
+  "types": "lib/index.d.ts",
+  "files": [
+    "/src"
+  ],
+  "homepage": "https://github.com/speedydelete/unsure",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/speedydelete/unsure.git"
   },
+  "bugs": {
+    "url": "https://github.com/speedydelete/unsure/issues"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc"
   },
-  "devDependencies": {
-    "@types/node": "^22.10.10",
-    "typescript": "^5.7.3"
-  },
   "dependencies": {
-    "commander": "^13.1.0"
   },
-  "engines": {
-    "node": ">=17.0.0"
+  "devDependencies": {
+    "typescript": "^5.7.3"
   }
 }
