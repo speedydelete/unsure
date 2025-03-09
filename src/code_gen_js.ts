@@ -75,9 +75,15 @@ function compile(ast: a.Node): string {
         return (ast.const ? 'const' : 'let') + ' ' + compile(ast.id) + '=' + compile(ast.value) + ';';
     } else if (ast.type === 'Assignment') {
         return (ast.declare ? (ast.const ? 'const ' : 'let ') : '') + compile(ast.id) + '=' + compile(ast.value) + ';';
+    } else if (ast.type === 'IfStatement') {
+        let out = 'if(' + compile(ast.test) + '[s.to_boolean]()[number_value]){' + ast.body.map(compile).join('\n') + '}';
+        if (ast.orelse.length > 0) {
+            out += 'else{' + ast.orelse.map(compile).join('\n') + '}';
+        }
+        return out;
     } else if (ast.type === 'Argument') {
         if (ast.value === null) {
-            throw new SyntaxError_('AST nodes without a value are only allowed in function definitions', ast);
+            throw new SyntaxError_('arguments without a value are only allowed in function definitions', ast);
         }
         return compile(ast.value);
     } else if (ast.type === 'FunctionCall') {

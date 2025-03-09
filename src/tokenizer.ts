@@ -207,6 +207,7 @@ function extractString(code: CodeStream, endsWith: string): string {
             out += code.char();
         }
     }
+    code.raw = out;
     return out;
 }
 

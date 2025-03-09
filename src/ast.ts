@@ -111,7 +111,7 @@ interface  HasRawLineAndCol{
 export function createNode<T extends typeof Identifier | typeof StringLiteral | typeof ByteLiteral | typeof ShortLiteral | typeof IntLiteral | typeof LongLiteral | typeof BigintLiteral | typeof FloatLiteral | typeof DoubleLiteral | typeof UnaryOp | typeof BinaryOp | typeof TernaryConditional | typeof Argument | typeof PropertyAccess | typeof FunctionCall | typeof GetItem | typeof GetSlice | typeof Generic | typeof ExpressionStatement | typeof Assignment | typeof TypedAssignment | typeof IfStatement | typeof ForLoop | typeof WhileLoop | typeof FunctionDefinition | typeof ClassDefinition | typeof Program>(node: T, token: HasRawLineAndCol | HasRawLineAndCol[], ...args: T extends (raw: string, line: number, col: number, ...args: infer U) => ReturnType<T> ? U : never): ReturnType<T> {
     if (token instanceof Array) {
         // @ts-ignore // why doesn't this work
-        return node(token.map(x => x.raw).join(' '), token[0].line, token[0].col, ...args);
+        return node(token.map(x => x.raw).join(''), token[0].line, token[0].col, ...args);
     } else {
         // @ts-ignore // why doesn't this work
         return node(token.raw, token.line, token.col, ...args);
@@ -365,16 +365,16 @@ function parseStatement(tokens: t.Token[]): Statement {
                 throw new SyntaxError_('expected expression after if keyword', tokens[1]);
             }
             let [test, len] = parseExpression(tokens, 2, true);
-            if (tokens[len].type !== 'LeftBrace') {
+            if (tokens[len + 1].type !== 'LeftBrace') {
                 throw new SyntaxError_('expected block after if keyword', tokens[len]);
             }
-            let [body, len2] = parseCodeBlock(tokens, len + 1);
+            let [body, len2] = parseCodeBlock(tokens, len + 2);
             if (tokens[len2].type === 'Keyword' && tokens[len2].name === 'else') {
                 if (tokens[len2 + 1].type !== 'LeftBrace') {
                     throw new SyntaxError_('expected block after else keyword', tokens[len2 + 1]);
                 }
-                let [orelse, len3] = parseCodeBlock(tokens, len + 1)
-                if (len3 !== tokens.length) {
+                let [orelse, len3] = parseCodeBlock(tokens, len2 + 2);
+                if (len3 !== tokens.length - 1) {
                     throw new SyntaxError_('expected semicolon', tokens[len3]);
                 }
                 return createNode(IfStatement, tokens, test, body, orelse);
@@ -411,6 +411,7 @@ function parseStatement(tokens: t.Token[]): Statement {
 
 function parseCodeBlock(tokens: t.Token[], startIndex: number = 0, endAtBrace: boolean = true): [Statement[], number] {
     let out: Statement[] = [];
+    let parenCount = 0;
     let braceCount = 0;
     let buffer: t.Token[] = [];
     for (let i = startIndex; i < tokens.length; i++) {
@@ -422,16 +423,27 @@ function parseCodeBlock(tokens: t.Token[], startIndex: number = 0, endAtBrace: b
             buffer = [];
         } else {
             buffer.push(token);
-            if (token.type === 'LeftBrace' || token.type === 'LeftParen') {
+            if (token.type === 'LeftBrace') {
                 braceCount++;
-            } else if (token.type === 'RightBrace' || token.type === 'RightParen') {
+            } else if (token.type === 'LeftParen') {
+                parenCount++;
+            } else if (token.type === 'RightBrace') {
                 braceCount--;
+                if (braceCount === 0 && parenCount === 0) {
+                    out.push(parseStatement(buffer));
+                    buffer = [];
+                }
                 if (braceCount < 0) {
                     if (endAtBrace) {
                         return [out, i];
                     } else {
-                        throw new SyntaxError_('mismatched parentheses and/or braces', token);
-                   }
+                        throw new SyntaxError_('mismatched braces', token);
+                    }
+                }
+            } else if (token.type === 'RightParen') {
+                parenCount--;
+                if (parenCount < 0) {
+                    throw new SyntaxError_('mismatched parentheses', token);
                 }
             }
         }

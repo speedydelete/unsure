@@ -142,15 +142,6 @@ let baseObject = Object.assign(Object.create(null), {
     },
 });
 
-// make it so that ((falsy Unsure object) == false) is true
-function toPrimitive() {
-    return this[s.to_boolean][value];
-}
-function addToPrimitive(obj) {
-    Object.defineProperty(obj, Symbol.toPrimitive, {value: toPrimitive.bind(obj)});
-}
-addToPrimitive(baseObject);
-
 // any, global metaclass
 // all unsure variables start with $
 let $any = Object.assign(Object.create(null), baseObject, {
@@ -173,8 +164,6 @@ let $any = Object.assign(Object.create(null), baseObject, {
         [s.prototype]: Object.assign(Object.create(null), baseObject),
     }),
 });
-addToPrimitive($any);
-addToPrimitive($any[s.prototype]);
 let any = $any[s.call].bind($any);
 
 // helper functions
@@ -467,6 +456,9 @@ let $boolean = createSubclass($number, 'boolean', {
     },
     [s.to_string]() {
         return string(this[number_value] ? 'true' : 'false');
+    },
+    [s.to_boolean]() {
+        return boolean(this[number_value]);  
     },
     [get_number]() {
         return this[number_value];
