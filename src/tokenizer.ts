@@ -7,7 +7,6 @@ export class CodeStream {
     line: number = 0;
     col: number = 0;
     raw: string = '';
-    eaten: string = '';
 
     constructor(code?: string | Token[] | {code?: string, tokens?: Token[]}) {
         if (typeof code === 'string') {
@@ -22,7 +21,7 @@ export class CodeStream {
 
     handleMultiline(): void {
         if (this.raw.includes('\n')) {
-            this.line = (this.raw.match(/\n/g) || []).length;
+            this.line += (this.raw.match(/\n/g) || []).length;
             this.col = this.raw.length - this.raw.lastIndexOf('\n');
         } else {
             this.col += this.raw.length;
@@ -42,10 +41,11 @@ export class CodeStream {
         if (typeof text === 'string') {
             if (this.code.slice(this.pos, this.pos + text.length) === text) {
                 this.raw = text;
-                this.eaten = text;
                 this.pos += text.length;
                 if (multiline) {
                     this.handleMultiline();
+                } else {
+                    this.col += text.length;
                 }
                 return text;
             } else {
@@ -66,9 +66,10 @@ export class CodeStream {
         if (match !== null) {
             this.raw = match[0];
             this.pos += match[0].length;
-            this.col += match[0].length;
             if (multiline) {
                 this.handleMultiline();
+            } else {
+                this.col += match[0].length;
             }
         }
         return match;
@@ -216,7 +217,7 @@ const OPERATORS = ['++', '--', '&&', '||', '^^', '==', '!=', '<=', '>=', '**', '
 
 export function tokenize(code: string | CodeStream): Token[] {
     if (typeof code === 'string') {
-        code = new CodeStream(code);
+        code = new CodeStream(code.replaceAll('\r\n', '\n'));
     }
     let match: RegExpMatchArray | null;
     let text: string | null;
@@ -225,7 +226,7 @@ export function tokenize(code: string | CodeStream): Token[] {
             code.token(Space);
         } else if (code.eat('\n', true)) {
             code.token(Newline);
-        } else if (match = code.match(/[a-zA-Z_$][a-zA-Z0-9_$]*/)) {
+        } else if (match = code.match(/^[a-zA-Z_$][a-zA-Z0-9_$]*/)) {
             if (KEYWORDS.includes(match[0])) {
                 code.token(Keyword, match[0])
             } else {
@@ -258,7 +259,7 @@ export function tokenize(code: string | CodeStream): Token[] {
             code.token(StringLiteral, extractString(code, "'"));
         } else if (code.eat('"')) {
             code.token(StringLiteral, extractString(code, '"'));
-        } else if (match = code.match(/((-?[1-9][0-9]*(\.[0-9]+)?|0b[01]+|0o[0-7]+|0x[0-9A-Fa-f]+))([nfd]|u?[bsil])?/)) {
+        } else if (match = code.match(/^((-?[1-9][0-9]*(\.[0-9]+)?|0b[01]+|0o[0-7]+|0x[0-9A-Fa-f]+))([nfd]|u?[bsil])?/)) {
             code.token(NumberLiteral, match[1], match[2]);
         } else {
             throw new SyntaxError_('cannot find token', code);

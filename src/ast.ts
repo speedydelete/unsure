@@ -56,7 +56,7 @@ export let BinaryOp = createASTFactory<BinaryOp>('BinaryOp', 'op', 'left', 'righ
 export type TernaryConditional = CreateASTType<'TernaryConditional', {test: Expression, if_true: Expression, if_false: Expression}>;
 export let TernaryConditional = createASTFactory<TernaryConditional>('BinaryOp', 'test', 'if_true', 'if_false');
 
-export type Argument = CreateASTType<'Argument', {name: Identifier, type_: Expression | null, value: Expression | null}>;
+export type Argument = CreateASTType<'Argument', {name: Identifier | null, type_: Expression | null, value: Expression | null}>;
 export let Argument = createASTFactory<Argument>('Argument', 'name', 'type_', 'value');
 
 export type PropertyAccess = CreateASTType<'PropertyAccess', {obj: Expression, prop: Identifier}>;
@@ -72,6 +72,8 @@ export type Generic = CreateASTType<'Generic', {obj: Expression, generic: Expres
 export let Generic = createASTFactory<Generic>('Generic', 'obj', 'generic');
 
 export type Expression = Identifier | StringLiteral | NumberLiteral | UnaryOp | BinaryOp | TernaryConditional | PropertyAccess | FunctionCall | GetItem | GetSlice | Generic;
+export type ExpressionStatement = CreateASTType<'ExpressionStatement', {expr: Expression}>;
+export let ExpressionStatement = createASTFactory<ExpressionStatement>('ExpressionStatement', 'expr');
 
 export type Assignment = CreateASTType<'Assignment', {declare: boolean, const: boolean, id: Identifier | GetItem, value: Expression}>;
 export let Assignment = createASTFactory<Assignment>('Assignment', 'declare', 'const', 'id', 'value');
@@ -91,16 +93,22 @@ export let FunctionDefinition = createASTFactory<FunctionDefinition>('FunctionDe
 export type ClassDefinition = CreateASTType<'ClassDefinition', {name: Identifier, superclasses: Expression[], body: Statement[]}>;
 export let ClassDefinition = createASTFactory<ClassDefinition>('ClassDefinition', 'name', 'superclasses', 'body');
 
-export type Statement = Assignment | TypedAssignment | IfStatement | ForLoop | WhileLoop | FunctionDefinition | ClassDefinition;
+export type Statement = ExpressionStatement | Assignment | TypedAssignment | IfStatement | ForLoop | WhileLoop | FunctionDefinition | ClassDefinition;
 
 export type Program = CreateASTType<'Program', {statements: Statement[]}>;
 export let Program = createASTFactory<Program>('Program', 'statements');
 
 export type AST = Program | Statement;
-export type Node = AST | Expression;
+export type Node = AST | Expression | Argument;
 
 
-export function createNode<T extends typeof Identifier | typeof StringLiteral | typeof ByteLiteral | typeof ShortLiteral | typeof IntLiteral | typeof LongLiteral | typeof BigintLiteral | typeof FloatLiteral | typeof DoubleLiteral | typeof UnaryOp | typeof BinaryOp | typeof TernaryConditional | typeof Argument | typeof PropertyAccess | typeof FunctionCall | typeof GetItem | typeof GetSlice | typeof Generic | typeof Assignment | typeof TypedAssignment | typeof IfStatement | typeof ForLoop | typeof WhileLoop | typeof FunctionDefinition | typeof ClassDefinition | typeof Program>(node: T, token: t.Token | t.Token[], ...args: T extends (raw: string, line: number, col: number, ...args: infer U) => ReturnType<T> ? U : never): ReturnType<T> {
+interface  HasRawLineAndCol{
+    raw: string;
+    line: number;
+    col: number;
+}
+
+export function createNode<T extends typeof Identifier | typeof StringLiteral | typeof ByteLiteral | typeof ShortLiteral | typeof IntLiteral | typeof LongLiteral | typeof BigintLiteral | typeof FloatLiteral | typeof DoubleLiteral | typeof UnaryOp | typeof BinaryOp | typeof TernaryConditional | typeof Argument | typeof PropertyAccess | typeof FunctionCall | typeof GetItem | typeof GetSlice | typeof Generic | typeof ExpressionStatement | typeof Assignment | typeof TypedAssignment | typeof IfStatement | typeof ForLoop | typeof WhileLoop | typeof FunctionDefinition | typeof ClassDefinition | typeof Program>(node: T, token: HasRawLineAndCol | HasRawLineAndCol[], ...args: T extends (raw: string, line: number, col: number, ...args: infer U) => ReturnType<T> ? U : never): ReturnType<T> {
     if (token instanceof Array) {
         // @ts-ignore // why doesn't this work
         return node(token.map(x => x.raw).join(' '), token[0].line, token[0].col, ...args);
@@ -138,24 +146,113 @@ export const PRECEDENCE: {[key: string]: number} = {
     '^^': 1,
 };
 
-export function parseSimpleExpression(tokens: (t.Token | Expression)[]): Expression {
+
+
+function tokenToExpression(token: t.Token | Expression): Expression | null {
+    if (token.ast) {
+        return token;
+    } else if (token.type === 'Identifier') {
+        return createNode(Identifier, token, token.name);
+    } else if (token.type === 'StringLiteral') {
+        return createNode(StringLiteral, token, token.value);
+    } else if (token.type === 'NumberLiteral') {
+        let value = token.value;
+        if (value.includes('.')) {
+            if (value.endsWith('f')) {
+                return createNode(FloatLiteral, token, parseFloat(value));
+            } else {
+                return createNode(DoubleLiteral, token, parseFloat(value));
+            }
+        } else {
+            if (value.endsWith('b')) {
+                return createNode(ByteLiteral, token, parseInt(value));
+            } else if (value.endsWith('s')) {
+                return createNode(ShortLiteral, token, parseInt(value));
+            } else if (value.endsWith('i')) {
+                return createNode(IntLiteral, token, parseInt(value));
+            } else if (value.endsWith('l')) {
+                return createNode(LongLiteral, token, BigInt(value));
+            } else {
+                return createNode(BigintLiteral, token, BigInt(value));
+            }
+        }
+    } else {
+        return null;
+    }
+}
+
+
+function parseArgument(tokens: (t.Token | Expression)[]): Argument {
+    if (tokens[0].ast) {
+        return createNode(Argument, tokens[0], null, null, tokens[0]);
+    }
+    // placeholder, todo: make this better
+    return createNode(Argument, tokens[0], null, null, parseExpression(tokens)[0]);
+}
+
+function parseSimpleExpressionReplaceCalls(tokens: (t.Token | Expression)[]): (t.Token | Expression)[] {
+    let inFunction = false;
     let out: (t.Token | Expression)[] = [];
+    let func: t.Token | Expression | null = null;
+    let args: Argument[] = [];
+    let argBuffer: (t.Token | Expression)[] = [];
+    for (let token of tokens) {
+        if (!inFunction) {
+            if (token.type === 'LeftParen') {
+                inFunction = true;
+                let funcOrUndefined = out.pop();
+                if (funcOrUndefined === undefined) {
+                    throw new TypeError('this error should not occur');
+                }
+                func = funcOrUndefined;
+            } else {
+                out.push(token);
+            }
+        } else {
+            if (token.type === 'RightParen') {
+                args.push(parseArgument(argBuffer));
+                argBuffer = [];
+                inFunction = false;
+                if (func === null) {
+                    throw new TypeError('this error should not occur');
+                }
+                let funcExpr = tokenToExpression(func);
+                if (funcExpr === null) {
+                    throw new SyntaxError_(`unrecognized token of type: ${token.type}`, token);
+                }
+                out.push(createNode(FunctionCall, token, funcExpr, args));
+            } else if (token.type === 'Comma') {
+                args.push(parseArgument(argBuffer));
+                argBuffer = [];
+            } else {
+                argBuffer.push(token);
+            }
+        }
+    }
+    return out;
+}
+
+function parseSimpleExpression(tokens: (t.Token | Expression)[]): Expression {
+    tokens = parseSimpleExpressionReplaceCalls(tokens);
+    let out: (Expression | t.Operator)[] = [];
     let ops: t.Operator[] = [];
     for (let token of tokens) {
-        if (token.ast) {
-            out.push(token);
-        }
-        if (token.type === 'Keyword' && (token.name === 'extends' || token.name === 'instanceof' || token.name === 'subclassof')) {
+        let expr = tokenToExpression(token);
+        if (expr !== null) {
+            out.push(expr);
+        } else if (token.type === 'Keyword' && (token.name === 'extends' || token.name === 'instanceof' || token.name === 'subclassof')) {
             token = t.Operator(token.raw, token.line, token.col, token.name);
-        }
-        if (token.type === 'Operator') {
+        } else if (token.type === 'Operator') {
             while (ops.length > 0 && PRECEDENCE[token.op] > PRECEDENCE[ops[0].op]) {
                 out.push(ops.pop() as t.Operator);
             }
             ops.push(token);
         } else {
-            out.push(token);
+            throw new SyntaxError_(`unsupported token of type ${token.type}`, token);
         }
+    }
+    while (ops.length > 0) {
+        out.push(ops.pop() as t.Operator);
     }
     let left: Expression | null = null;
     let right: Expression | null = null;
@@ -167,43 +264,12 @@ export function parseSimpleExpression(tokens: (t.Token | Expression)[]): Express
             left = createNode(BinaryOp, token, token.op, left, right);
             continue;
         }
-        let expr: Expression;
-        if (token.ast) {
-            expr = token;
-        } else if (token.type === 'Identifier') {
-            expr = createNode(Identifier, token, token.name);
-        } else if (token.type === 'StringLiteral') {
-            expr = createNode(StringLiteral, token, token.value);
-        } else if (token.type === 'NumberLiteral') {
-            let value = token.value;
-            if (value.includes('.')) {
-                if (value.endsWith('f')) {
-                    expr = createNode(FloatLiteral, token, parseFloat(value));
-                } else {
-                    expr = createNode(DoubleLiteral, token, parseFloat(value));
-                }
-            } else {
-                if (value.endsWith('b')) {
-                    expr = createNode(ByteLiteral, token, parseInt(value));
-                } else if (value.endsWith('s')) {
-                    expr = createNode(ShortLiteral, token, parseInt(value));
-                } else if (value.endsWith('i')) {
-                    expr = createNode(IntLiteral, token, parseInt(value));
-                } else if (value.endsWith('l')) {
-                    expr = createNode(LongLiteral, token, BigInt(value));
-                } else {
-                    expr = createNode(BigintLiteral, token, BigInt(value));
-                }
-            }
-        } else {
-            throw new SyntaxError_(`invalid token in expression: ${token.type}`, token);
-        }
         if (left === null) {
-            left = expr;
+            left = token;
         } else if (right === null) {
-            right = expr;
+            right = token;
         } else {
-            throw new SyntaxError_('invalid syntax', expr);
+            throw new SyntaxError_('invalid syntax', token);
         }
     }
     if (left === null) {
@@ -212,21 +278,27 @@ export function parseSimpleExpression(tokens: (t.Token | Expression)[]): Express
     return left;
 }
 
-export function parseExpression(tokens: t.Token[], startIndex: number = 0, endAtParen: boolean = false): [Expression, number] {
+function parseExpression(tokens: (t.Token | Expression)[], startIndex: number = 0, endAtParen: boolean = false): [Expression, number] {
     let wasIdentifier = false;
     let out: (t.Token | Expression)[] = [];
+    let inFunction = false;
     for (let i = startIndex; i < tokens.length; i++) {
         let token = tokens[i];
         if (token.type === 'LeftParen') {
             if (wasIdentifier) {
                 wasIdentifier = false;
+                out.push(token);
+                inFunction = true;
             } else {
                 let [expr, len] = parseExpression(tokens, i, true);
                 out.push(expr);
                 i = len - 1;
             }
         } else if (token.type === 'RightParen') {
-            if (endAtParen) {
+            if (inFunction) {
+                out.push(token);
+                inFunction = false;
+            } else if (endAtParen) {
                 return [parseSimpleExpression(out), i];
             } else {
                 throw new SyntaxError_('mismatched parentheses', token);
@@ -243,7 +315,7 @@ export function parseExpression(tokens: t.Token[], startIndex: number = 0, endAt
     return [parseSimpleExpression(out), tokens.length];
 }
 
-export function parseTypedAssignment(tokens: TokenList<t.Identifier>, const_: boolean): Assignment | TypedAssignment {
+function parseTypedAssignment(tokens: TokenList<t.Identifier>, const_: boolean): Assignment | TypedAssignment {
     if (tokens[1].type === 'Identifier') {
         if (tokens[2].type !== 'Equals') {
             throw new SyntaxError_('expected equals sign', tokens[2]);
@@ -264,7 +336,7 @@ export function parseTypedAssignment(tokens: TokenList<t.Identifier>, const_: bo
     }
 }
 
-export function parseAssignment(tokens: TokenList<t.Keyword<'let' | 'const'> | t.Identifier>): Assignment | TypedAssignment {
+function parseAssignment(tokens: TokenList<t.Keyword<'let' | 'const'> | t.Identifier>): Assignment | TypedAssignment {
     if (tokens[0].type === 'Keyword') {
         if (tokens[1].type !== 'Identifier') {
             throw new SyntaxError_('expected identifier', tokens[1]);
@@ -285,7 +357,7 @@ export function parseAssignment(tokens: TokenList<t.Keyword<'let' | 'const'> | t
     }
 }
 
-export function parseStatement(tokens: t.Token[]): Statement {
+function parseStatement(tokens: t.Token[]): Statement {
     if (tokens[0].type === 'Keyword') {
         let keyword = tokens[0].name;
         if (keyword === 'if') {
@@ -315,13 +387,29 @@ export function parseStatement(tokens: t.Token[]): Statement {
             throw new SyntaxError_(`${keyword} does not have an assigned meaning`, tokens[0]);
         }
     } else if (tokens[0].type === 'Identifier') {
-        return parseAssignment(tokens as TokenList<t.Identifier>);
+        try {
+            return parseAssignment(tokens as TokenList<t.Identifier>);
+        } catch (error) {
+            if (error instanceof SyntaxError_) {
+                try {
+                    return createNode(ExpressionStatement, tokens[0], parseExpression(tokens)[0]);
+                } catch (error2) {
+                    if (error2 instanceof SyntaxError_) {
+                        throw new SyntaxError_('cannot parse statement, tried parsing as assignment, got "' + error.message + '", tried parsing as expression, got "' + error2.message + '"', tokens[0]);
+                    } else {
+                        throw error2;
+                    }
+                }
+            } else {
+                throw error;
+            }
+        }
     } else {
         throw new SyntaxError_(`invalid token for the start of a statement: ${tokens[0].type}`, tokens[0]);
     }
 }
 
-export function parseCodeBlock(tokens: t.Token[], startIndex: number = 0, endAtBrace: boolean = true): [Statement[], number] {
+function parseCodeBlock(tokens: t.Token[], startIndex: number = 0, endAtBrace: boolean = true): [Statement[], number] {
     let out: Statement[] = [];
     let braceCount = 0;
     let buffer: t.Token[] = [];

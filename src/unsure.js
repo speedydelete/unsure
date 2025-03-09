@@ -80,13 +80,13 @@ let baseObject = Object.assign(Object.create(null), {
         return value[s.is_instance](this) || value[s.is_subclass](this);
     },
     [s.type_of]() {
-        return this.constructor;
+        return this[s.constructor];
     },
     [s.init]() {
         return;
     },
     [s.repr]() {
-        return string('[{name} does not implement symbol.repr]');
+        return string(`[${this[s.constructor][s.name]} does not implement symbol.repr]`);
     },
     [s.to_string]() {
         return this[s.repr]();
@@ -181,6 +181,7 @@ let any = $any[s.call].bind($any);
 function createClass(metaclass, name, prototype, static = {}) {
     let out = metaclass[s.call]();
     out[s.name] = name;
+    out[s.constructor] = metaclass;
     Object.assign(out[s.prototype], prototype);
     Object.assign(out, static);
     return out;
@@ -189,7 +190,9 @@ function createClass(metaclass, name, prototype, static = {}) {
 function createSubclass(class_, name, prototype, static = {}) {
     let out = Object.create(class_);
     out[s.name] = name;
-    out[s.prototype] = Object.assign(Object.create(out[s.prototype]), prototype);
+    out[s.prototype] = Object.create(out[s.prototype]);
+    out[s.prototype][s.constructor] = out;
+    Object.assign(out[s.prototype], prototype);
     Object.assign(out, static);
     return out;
 }
@@ -275,46 +278,46 @@ let $number = createClass($any, 'number', {
         return boolean(this[get_number]() <= other[get_number]());
     },
     [s.and](other) {
-        return this[s.type_of](this[get_number]() & other[get_number]());
+        return this[s.type_of]()[s.call][s.call](this[get_number]() & other[get_number]());
     },
     [s.or](other) {
-        return this[s.type_of](this[get_number]() | other[get_number]());
+        return this[s.type_of]()[s.call](this[get_number]() | other[get_number]());
     },
     [s.xor](other) {
-        return this[s.type_of](this[get_number]() ^ other[get_number]());
+        return this[s.type_of]()[s.call](this[get_number]() ^ other[get_number]());
     },
     [s.not]() {
-        return this[s.type_of](~this[get_number]());
+        return this[s.type_of]()[s.call](~this[get_number]());
     },
     [s.add](other) {
-        return this[s.type_of](this[get_number]() + other[get_number]());
+        return this[s.type_of]()[s.call](this[get_number]() + other[get_number]());
     },
     [s.sub](other) {
-        return this[s.type_of](this[get_number]() - other[get_number]());
+        return this[s.type_of]()[s.call](this[get_number]() - other[get_number]());
     },
     [s.increment]() {
-        return this[s.type_of](this[get_number]()++);
+        return this[s.type_of]()[s.call](this[get_number]()++);
     },
     [s.decrement]() {
-        return this[s.type_of](this[get_number]()--);
+        return this[s.type_of]()[s.call](this[get_number]()--);
     },
     [s.unary_plus]() {
-        return this[s.type_of](+this[get_number]());
+        return this[s.type_of]()[s.call](+this[get_number]());
     },
     [s.unary_minus]() {
-        return this[s.type_of](-this[get_number]());
+        return this[s.type_of]()[s.call](-this[get_number]());
     },
     [s.mul](other) {
-        return this[s.type_of](this[get_number]() * other[get_number]());
+        return this[s.type_of]()[s.call](this[get_number]() * other[get_number]());
     },
     [s.div](other) {
-        return this[s.type_of](this[get_number]() / other[get_number]());
+        return this[s.type_of]()[s.call](this[get_number]() / other[get_number]());
     },
     [s.mod](other) {
-        return this[s.type_of](this[get_number]() % other[get_number]());
+        return this[s.type_of]()[s.call](this[get_number]() % other[get_number]());
     },
     [s.exp](other) {
-        return this[s.type_of](this[get_number]() ** other[get_number]());
+        return this[s.type_of]()[s.call](this[get_number]() ** other[get_number]());
     },
 });
 
@@ -634,3 +637,8 @@ let $true = boolean(true);
 let $false = boolean(false);
 let $NaN = double(NaN);
 let $Infinity = double(Infinity);
+
+// builtin functions
+function $print(...args) {
+    console.log(...args.map(x => x[s.to_string]()[value]));
+}

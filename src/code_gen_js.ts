@@ -1,6 +1,7 @@
 
 import {readFileSync} from 'fs';
 import type * as a from './ast';
+import {SyntaxError_} from './tokenizer';
 
 
 export const HEADER = readFileSync('./src/unsure.js');
@@ -57,7 +58,7 @@ function compile(ast: a.Node): string {
     } else if (ast.type === 'LongLiteral') {
         return 'long(' + ast.value + ')';
     } else if (ast.type === 'BigintLiteral') {
-        return 'bigint(' + ast.value + ')';
+        return 'bigint(' + ast.value + 'n)';
     } else if (ast.type === 'FloatLiteral') {
         return 'float32(' + ast.value + ')';
     } else if (ast.type === 'DoubleLiteral') {
@@ -68,12 +69,21 @@ function compile(ast: a.Node): string {
         return compile(ast.left) + '[' + BINARY_OP_SYMBOLS[ast.op] + '](' + compile(ast.right) + ')';
     } else if (ast.type === 'TernaryConditional') {
         return compile(ast.test) + '[s.ternary_conditional](' + compile(ast.if_true) + ',' + compile(ast.if_false) + ')';
+    } else if (ast.type === 'ExpressionStatement') {
+        return compile(ast.expr) + ';';
     } else if (ast.type === 'TypedAssignment') {
-        return (ast.const ? 'const' : 'let') + ' ' + compile(ast.id) + '=' + compile(ast.value);
+        return (ast.const ? 'const' : 'let') + ' ' + compile(ast.id) + '=' + compile(ast.value) + ';';
     } else if (ast.type === 'Assignment') {
-        return (ast.declare ? (ast.const ? 'const ' : 'let ') : '') + compile(ast.id) + '=' + compile(ast.value);
+        return (ast.declare ? (ast.const ? 'const ' : 'let ') : '') + compile(ast.id) + '=' + compile(ast.value) + ';';
+    } else if (ast.type === 'Argument') {
+        if (ast.value === null) {
+            throw new SyntaxError_('AST nodes without a value are only allowed in function definitions', ast);
+        }
+        return compile(ast.value);
+    } else if (ast.type === 'FunctionCall') {
+        return compile(ast.func) + '(' + ast.args.map(compile).join(',') + ')';
     } else {
-        throw new TypeError(`AST nodes of type ${ast.type} are not supported yet`);
+        throw new SyntaxError_(`AST nodes of type ${ast.type} are not supported yet`, ast);
     }
 }
 
@@ -87,5 +97,5 @@ export function astToJS(ast: a.AST): string {
     } else {
         out = compile(ast);
     }
-    return HEADER + ';let $__debug__ = undefined;' + out + ';if($__debug__!==undefined){console.log($__debug__[s.to_string]()[value]);};';
+    return HEADER + '\n\n// unsure.js ends here, compiled code starts here\n\n' + out + '\n';
 }

@@ -1,1 +1,4 @@
-__debug__ = 1 + 2;
+let x = 4;
+if (x > 3) {
+    print('x is more than 3');
+}
