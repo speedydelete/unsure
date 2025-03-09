@@ -87,5 +87,5 @@ export function astToJS(ast: a.AST): string {
     } else {
         out = compile(ast);
     }
-    return HEADER + ';let $__debug__ = undefined;' + out + ';if($__debug__!==undefined){console.log($__debug__);};';
+    return HEADER + ';let $__debug__ = undefined;' + out + ';if($__debug__!==undefined){console.log($__debug__[s.to_string]()[value]);};';
 }

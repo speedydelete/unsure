@@ -169,8 +169,17 @@ let $any = Object.assign(Object.create(null), baseObject, {
 });
 let any = $any[s.call].bind($any);
 
+// helper functions
+function createClass(metaclass, name, prototype, static = {}) {
+    let out = metaclass[s.call]();
+    out[s.name] = name;
+    Object.assign(out[s.prototype], prototype);
+    Object.assign(out, static);
+    return out;
+}
+
 function createSubclass(class_, name, prototype, static = {}) {
-    let out = class_[s.call]();
+    let out = Object.create(class_);
     out[s.name] = name;
     Object.assign(out[s.prototype], prototype);
     Object.assign(out, static);
@@ -178,7 +187,7 @@ function createSubclass(class_, name, prototype, static = {}) {
 }
 
 // function
-let $function = createSubclass($any, 'function', {
+let $function = createClass($any, 'function', {
     name: '',
     [s.init](...args) {
         if (typeof args[0] === 'function') {
@@ -198,7 +207,7 @@ $any.no_proto = func(function(properties) {
 }, 'any.no_proto');
 
 // unknown, any but with type checking
-let $unknown = createSubclass($any, 'unknown', {
+let $unknown = createClass($any, 'unknown', {
     [s.name]: 'unknown',
     [s.prototype]: {
         [s.repr]() {
@@ -210,7 +219,7 @@ let $unknown = createSubclass($any, 'unknown', {
 let unknown = $unknown[s.call].bind($unknown);
 
 // null
-let $null = createSubclass($any, 'null', {
+let $null = createClass($any, 'null', {
     [s.repr]() {
         return string('null');
     },
@@ -224,7 +233,7 @@ let $null = createSubclass($any, 'null', {
 let number_value = get_internal_symbol('number_value'); // the actual place where the value is stored
 let get_number = get_internal_symbol('get_number'); // should be a function returning a JavaScript number
 let set_number = get_internal_symbol('set_number'); // should be a function taking in a JavaScript number
-let $number = createSubclass($any, 'number', {
+let $number = createClass($any, 'number', {
     [s.init](value) {
         if (typeof value === 'number' || typeof value === 'bigint') {
             this[set_number](value);
@@ -307,113 +316,89 @@ let INT_IS_INT32 = false;
 let FLOAT_IS_FLOAT32 = false;
 
 // byte
-let $byte = Object.assign(Object.create($number), {
-    [s.name]: 'byte',
-    [s.prototype]: {
-        [s.init](value) {
-            this[s.number_value] = new Int8Array([value]);
-        },
-        [s.repr]() {
-            return string(this[s.number_value] + 'b');
-        },
+let $byte = createSubclass($number, 'byte', {
+    [s.init](value) {
+        this[s.number_value] = new Int8Array([value]);
+    },
+    [s.repr]() {
+        return string(this[s.number_value] + 'b');
     },
 });
 let byte = $byte[s.call].bind($byte);
 
 // unsigned_byte
-let $unsigned_byte = Object.assign(Object.create($number), {
-    [s.name]: 'byte',
-    [s.prototype]: {
-        [s.init](value) {
-            this[s.number_value] = new Uint8Array([value]);
-        },
-        [s.repr]() {
-            return string(this[s.number_value] + 'ub');
-        },
+let $unsigned_byte = createSubclass($number, 'unsigned_byte', {
+    [s.init](value) {
+        this[s.number_value] = new Uint8Array([value]);
+    },
+    [s.repr]() {
+        return string(this[s.number_value] + 'ub');
     },
 });
 let unsigned_byte = $unsigned_byte[s.call].bind($unsigned_byte);
 
 // short
-let $short = Object.assign(Object.create($number), {
-    [s.name]: 'short',
-    [s.prototype]: {
-        [s.init](value) {
-            this[s.number_value] = new Int16Array([value]);
-        },
-        [s.repr]() {
-            return string(this[s.number_value] + 's');
-        },
+let $short = createSubclass($number, 'short', {
+    [s.init](value) {
+        this[s.number_value] = new Int16Array([value]);
+    },
+    [s.repr]() {
+        return string(this[s.number_value] + 's');
     },
 });
 let short = $short[s.call];
 
 // unsigned_short
-let $unsigned_short = Object.assign(Object.create($number), {
-    [s.name]: 'unsigned_short',
-    [s.prototype]: {
-        [s.init](value) {
-            this[s.number_value] = new Uint16Array([value]);
-        },
-        [s.repr]() {
-            return string(this[s.number_value] + 'us');
-        },
+let $unsigned_short = createSubclass($number, 'unsigned_short', {
+    [s.init](value) {
+        this[s.number_value] = new Uint16Array([value]);
+    },
+    [s.repr]() {
+        return string(this[s.number_value] + 'us');
     },
 });
 let unsigned_short = $unsigned_short[s.call].bind($unsigned_short);
 
 // int32
-let $int32 = Object.assign(Object.create($number), {
-    [s.name]: 'int32',
-    [s.prototype]: {
-        [s.init](value) {
-            this[s.number_value] = new Int32Array([value]);
-        },
-        [s.repr]() {
-            return string(this[s.number_value] + (INT_IS_INT32 ? '' : 'i'));
-        },
+let $int32 = createSubclass($number, 'int32', {
+    [s.init](value) {
+        this[s.number_value] = new Int32Array([value]);
+    },
+    [s.repr]() {
+        return string(this[s.number_value] + (INT_IS_INT32 ? '' : 'i'));
     },
 });
 let int32 = $int32[s.call].bind($int32);
 
 // unsigned_int32
-let $unsigned_int32 = Object.assign(Object.create($number), {
-    [s.name]: 'int32',
-    [s.prototype]: {
-        [s.init](value) {
-            this[s.number_value] = new Uint32Array([value]);
-        },
-        [s.repr]() {
-            return string(this[s.number_value] + 'u' + (INT_IS_INT32 ? '' : 'i'));
-        },
+let $unsigned_int32 = createSubclass($number, 'unsigned_int32', {
+    [s.init](value) {
+        this[s.number_value] = new Uint32Array([value]);
+    },
+    [s.repr]() {
+        return string(this[s.number_value] + 'u' + (INT_IS_INT32 ? '' : 'i'));
     },
 });
 let unsigned_int32 = $unsigned_int32[s.call].bind($unsigned_int32);
 
 // long
-let $long = Object.assign(Object.create($number), {
-    [s.name]: 'long',
-    [s.prototype]: {
-        [s.init](value) {
-            this[s.number_value] = new BigInt64Array([value]);
-        },
-        [s.repr]() {
-            return string(this[s.number_value] + 'l');
-        },
+let $long = createSubclass($number, 'long', {
+    [s.init](value) {
+        this[s.number_value] = new BigInt64Array([value]);
+    },
+    [s.repr]() {
+        return string(this[s.number_value] + 'l');
     },
 });
 let long = $long[s.call].bind($long);
 
 // unsigned_long
-let $unsigned_long = Object.assign(Object.create($number), {
-    [s.name]: 'unsigned_long',
-    [s.prototype]: {
-        [s.init](value) {
-            this[s.number_value] = new BigUint64Array([value]);
-        },
-        [s.repr]() {
-            return string(this[s.number_value] + 'ul');
-        },
+let $unsigned_long = createSubclass($number, 'unsigned_long', {
+    [s.init](value) {
+        this[s.number_value] = new BigUint64Array([value]);
+    },
+    [s.repr]() {
+        return string(this[s.number_value] + 'ul');
     },
 });
 let unsigned_long = $unsigned_long[s.call].bind($unsigned_long);
@@ -436,21 +421,18 @@ let $bigint = createSubclass($number, 'bigint', {
 let bigint = $bigint[s.call].bind($bigint);
 
 // float32
-let $float32 = Object.assign(Object.create($number), {
-    [s.name]: 'float32',
-    [s.prototype]: {
-        [s.init](value) {
-            this[s.number_value] = new Float32Array([value]);
-        },
-        [s.repr]() {
-            return string(this[s.number_value] + (FLOAT_IS_FLOAT32 ? '' : 'f'));
-        },
+let $float32 = createSubclass($number, 'float32', {
+    [s.init](value) {
+        this[s.number_value] = new Float32Array([value]);
+    },
+    [s.repr]() {
+        return string(this[s.number_value] + (FLOAT_IS_FLOAT32 ? '' : 'f'));
     },
 });
 let float32 = $float32[s.call].bind($float32);
 
 // double
-let $double = Object.assign(Object.create($number), {
+let $double = createSubclass($number, 'double', {
     [s.name]: 'double',
     [s.prototype]: {
         [s.init](value) {
@@ -467,183 +449,173 @@ let $int = INT_IS_INT32 ? $int32 : $bigint;
 let $float = FLOAT_IS_FLOAT32 ? $float32 : $double;
 
 // boolean
-let $boolean = Object.assign(Object.create($number), {
-    [s.name]: 'boolean',
-    [s.prototype]: {
-        [s.init](value) {
-            this[s.number_value] = (typeof value === 'object' && value !== null) ? value[s.to_boolean]()[s.number_value] : Boolean(value);
-        },
-        [s.to_string]() {
-            return string(this[s.number_value] ? 'true' : 'false');
-        },
-        [s.get_number]() {
-            return this[s.number_value];
-        },
-        [s.set_number](value) {
-            this[s.number_value] = value;
-        },
+let $boolean = createSubclass($number, 'boolean', {
+    [s.init](value) {
+        this[s.number_value] = (typeof value === 'object' && value !== null) ? value[s.to_boolean]()[s.number_value] : Boolean(value);
+    },
+    [s.to_string]() {
+        return string(this[s.number_value] ? 'true' : 'false');
+    },
+    [s.get_number]() {
+        return this[s.number_value];
+    },
+    [s.set_number](value) {
+        this[s.number_value] = value;
     },
 });
 let boolean = $boolean[s.call].bind($boolean);
 
 // symbol
 let is_for = get_internal_symbol('is_for'); // used to determine whether it was made with symbol.for
-let $symbol = createSubclass($any, '', {
-    [s.name]: 'symbol',
-    [s.prototype]: {
-        [s.init](value = '') {
-            if (typeof value === 'symbol') {
-                this[value] = value;
-                this.name = value.description;
-                this[is_for] = value === Symbol.for(value.description);
-            }
-            this.name = value;
-            this[value] = Symbol(value);
-            this[is_for] = false;
-        },
-        [s.repr]() {
-            return string(this[is_for] ? `symbol(${this.name})` : `symbol.for(${this.name})`);
-        },
-        [s.eq](other) {
-            return this[value] === other[value];
-        },
+let $symbol = createClass($any, 'symbol', {
+    [s.init](value = '') {
+        if (typeof value === 'symbol') {
+            this[value] = value;
+            this.name = value.description;
+            this[is_for] = value === Symbol.for(value.description);
+        }
+        this.name = value;
+        this[value] = Symbol(value);
+        this[is_for] = false;
     },
+    [s.repr]() {
+        return string(this[is_for] ? `symbol(${this.name})` : `symbol.for(${this.name})`);
+    },
+    [s.eq](other) {
+        return this[value] === other[value];
+    },
+}, {
     for: func(function(name) {
         let out = this[s.call](name);
         out[value] = Symbol.for('unsure.' + name);
         out[is_for] = true;
         return out;
     }, 'symbol.for'),
-    ...s.map(symbol),
 });
 let symbol = $symbol[s.call].bind($symbol);
+// add in the global symbols
+for (let name in s) {
+    symbol[name] = s[name];
+}
 
 // string
-let $string = createSubclass($any, '', {
-    [s.name]: 'string',
-    [s.prototype]: {
-        [s.init](value) {
-            if (typeof value === 'object' && value !== null) {
-                this[value] = value[s.to_string];
-            } else {
-                this[value] = value;
-            }
-        },
-        [s.to_iterator]() {
-            let i = 0;
-            let data = this[value];
-            return {
-                next() {
-                    let out = data[i];
-                    i++;
-                    if (i === data.length) {
-                        this.done = true;
-                    }
-                    return out;
-                },
-                done: false,
-            };
-        },
-        [s.to_string]() {
-            return string(this[value]);
-        },
-        [s.length]() {
-            return int32(this[value].length);
-        },
-        [s.contains](other) {
-            return boolean(this[value].includes(other));
-        },
-        [s.get_item](index) {
-            return string(this[value][index[value]]);
-        },
-        [s.set_item]() {
-            throw new UnsureError('TypeError', 'strings are not mutable');
-        },
-        [s.get_slice](start, stop) {
-            return string(this[value].slice(start[value], stop[value]));
-        },
-        [s.set_slice]() {
-            throw new UnsureError('TypeError', 'strings are not mutable');
-        },
-        upper: func(function() {
-            return string(this[value].toUpperCase());
-        }, '[string].upper'),
-        lower: func(function() {
-            return string(this[value].toLowerCase());
-        }, '[string].lower'),
+let $string = createSubclass($any, 'string', {
+    [s.init](value) {
+        if (typeof value === 'object' && value !== null) {
+            this[value] = value[s.to_string];
+        } else {
+            this[value] = value;
+        }
     },
+    [s.to_iterator]() {
+        let i = 0;
+        let data = this[value];
+        return {
+            next() {
+                let out = data[i];
+                i++;
+                if (i === data.length) {
+                    this.done = true;
+                }
+                return out;
+            },
+            done: false,
+        };
+    },
+    [s.to_string]() {
+        return string(this[value]);
+    },
+    [s.length]() {
+        return int32(this[value].length);
+    },
+    [s.contains](other) {
+        return boolean(this[value].includes(other));
+    },
+    [s.get_item](index) {
+        return string(this[value][index[value]]);
+    },
+    [s.set_item]() {
+        throw new UnsureError('TypeError', 'strings are not mutable');
+    },
+    [s.get_slice](start, stop) {
+        return string(this[value].slice(start[value], stop[value]));
+    },
+    [s.set_slice]() {
+        throw new UnsureError('TypeError', 'strings are not mutable');
+    },
+    upper: func(function() {
+        return string(this[value].toUpperCase());
+    }, '[string].upper'),
+    lower: func(function() {
+        return string(this[value].toLowerCase());
+    }, '[string].lower'),
 });
 let string = $string[s.call].bind($string);
 
 // object
-let $object = createSubclass($any, '', {
-    [s.name]: 'object',
-    [s.prototype]: {
-        [s.init](...args) {
-            if (!([s.to_string] in args[0])) { // checks if unsure object
-                Object.assign(this, args[0]);
-            } else {
-                for (let item of args[s.to_iterator]) {
-                    this[item[s.get_item](0)] = item[s.get_item](1);
-                }
+let $object = createSubclass($any, 'object', {
+    [s.init](...args) {
+        if (!([s.to_string] in args[0])) { // checks if unsure object
+            Object.assign(this, args[0]);
+        } else {
+            for (let item of args[s.to_iterator]) {
+                this[item[s.get_item](0)] = item[s.get_item](1);
             }
-        },
+        }
     },
+}, {
     assign: func(Object.assign, 'object.assign'),
 });
 let object = $object[s.call].bind($object);
 
 // array
-let $array = createSubclass($any, '', {
-    [s.name]: 'array',
-    [s.prototype]: {
-        [s.init](...args) {
-            this[value] = args;
-        },
-        [s.to_iterator]() {
-            let i = 0;
-            let data = this[value];
-            return {
-                next() {
-                    let out = data[i];
-                    i++;
-                    if (i === data.length) {
-                        this.done = true;
-                    }
-                    return out;
-                },
-                done: false,
-            };
-        },
-        [s.length]() {
-            return int32(this[value].length);
-        },
-        [s.contains](other) {
-            return this[value].includes(other);
-        },
-        [s.get_item](index) {
-            let out = this[value][index[value]];
-            if (out === undefined) {
-                throw new UnsureError('IndexError', `array index out of range: ${index}`);
-            } else {
+let $array = createSubclass($any, 'array', {
+    [s.init](...args) {
+        this[value] = args;
+    },
+    [s.to_iterator]() {
+        let i = 0;
+        let data = this[value];
+        return {
+            next() {
+                let out = data[i];
+                i++;
+                if (i === data.length) {
+                    this.done = true;
+                }
                 return out;
-            }
-        },
-        [s.set_item](index, other) {
-            index = index[value];
-            if (index < 0) {
-                index = this[value].length - index;
-            }
-            this[value][index] = other;
-        },
-        [s.get_slice](start, stop) {
-            return array(...this[value].slice(start, stop));
-        },
-        [s.set_slice](start, stop, other) {
-            for (let i = 0; i < (stop - start); i++) {
-                this[value][i + start] = other[i];
-            }
-        },
+            },
+            done: false,
+        };
+    },
+    [s.length]() {
+        return int32(this[value].length);
+    },
+    [s.contains](other) {
+        return this[value].includes(other);
+    },
+    [s.get_item](index) {
+        let out = this[value][index[value]];
+        if (out === undefined) {
+            throw new UnsureError('IndexError', `array index out of range: ${index}`);
+        } else {
+            return out;
+        }
+    },
+    [s.set_item](index, other) {
+        index = index[value];
+        if (index < 0) {
+            index = this[value].length - index;
+        }
+        this[value][index] = other;
+    },
+    [s.get_slice](start, stop) {
+        return array(...this[value].slice(start, stop));
+    },
+    [s.set_slice](start, stop, other) {
+        for (let i = 0; i < (stop - start); i++) {
+            this[value][i + start] = other[i];
+        }
     },
 });
 let array = $array[s.call].bind($array);
@@ -653,4 +625,4 @@ let $true = boolean(true);
 let $false = boolean(false);
 let $NaN = double(NaN);
 let $Infinity = double(Infinity);
-;let $__debug__ = undefined;$__debug__=bigint(1);if($__debug__!==undefined){console.log($__debug__);};
+;let $__debug__ = undefined;$__debug__=bigint(1);if($__debug__!==undefined){console.log($__debug__[s.to_string]()[value]);};
