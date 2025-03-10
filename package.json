@@ -29,6 +29,7 @@
     "typescript": "^5.7.3"
   },
   "dependencies": {
-    "minify": "^13.0.0"
+    "minify": "^11.2.1",
+    "readline-sync": "^1.4.10"
   }
 }

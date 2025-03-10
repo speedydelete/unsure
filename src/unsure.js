@@ -639,8 +639,25 @@ let $true = boolean(true);
 let $false = boolean(false);
 let $NaN = double(NaN);
 let $Infinity = double(Infinity);
+let $process = {
+    argv: array(process.argv.map(string)),
+};
 
 // builtin functions
+
 function $print(...args) {
-    console.log(...args.map(x => x[s.to_string]()[value]));
+    console.log(args.map(x => x[s.to_string]()[value]).join(' '));
+}
+
+let readlineSync = require('readline-sync');
+function $input(prompt) {
+    return string(readlineSync.question(prompt[s.to_string]()[value]));
+}
+
+function $ord(x) {
+    return x[value].charCodeAt(0);
+}
+
+function $chr(x) {
+    return string(String.fromCharCode(x[number_value]));
 }
