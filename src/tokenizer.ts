@@ -161,7 +161,7 @@ export type Keyword<T extends typeof KEYWORDS[number] = typeof KEYWORDS[number]>
 export let Keyword = createTokenFactory<Keyword>('Keyword', 'name');
 
 
-export type OperatorString = '&&' | '||' | '^^' | '==' | '!=' | '>=' | '<=' | '**' | '+' | '-' | '*' | '/' | '%' | '&' | '|' | '^' | '!' | '~' | '<' | '>' | 'extends' | 'instanceof' | 'subclassof';
+export type OperatorString = '&&' | '||' | '^^' | '==' | '!=' | '>=' | '<=' | '**' | '+' | '-' | '*' | '/' | '%' | '&' | '|' | '^' | '!' | '~' | '<' | '>' | 'extends' | 'instanceof' | 'subclassof' | '++' | '--' | 'typeof';
 export type Operator<T extends OperatorString = OperatorString> = CreateTokenType<'Operator', {op: T}>;
 export let Operator = createTokenFactory<Operator>('Operator', 'op');
 
@@ -214,7 +214,7 @@ function extractString(code: CodeStream, endsWith: string): string {
 
 const KEYWORDS = ['let', 'const', 'if', 'else', 'for', 'while', 'return', 'def', 'in', 'typeof', 'extends', 'instanceof', 'subclassof', 'type', 'interface', 'use', 'class', 'break', 'continue', 'async', 'await', 'yield', 'switch', 'case', 'throw', 'try', 'catch', 'finally', 'enum', 'super', 'abstract'];
 
-const OPERATORS = ['++', '--', '&&', '||', '^^', '==', '!=', '<=', '>=', '**', '+', '-', '*', '/', '%', '&', '|', '^', '!', '~', '<', '>', '?', ':', 'extends', 'instanceof', 'subclassof'];
+const OPERATORS = ['++', '--', '&&', '||', '^^', '==', '!=', '<=', '>=', '**', '+', '-', '*', '/', '%', '&', '|', '^', '!', '~', '<', '>', '?', ':', 'extends', 'instanceof', 'subclassof', 'typeof'];
 
 export function tokenize(code: string | CodeStream): Token[] {
     if (typeof code === 'string') {
@@ -227,6 +227,9 @@ export function tokenize(code: string | CodeStream): Token[] {
             code.token(Space);
         } else if (code.eat('\n', true)) {
             code.token(Newline);
+        } else if (text = code.eat(OPERATORS)) {
+            // @ts-ignore
+            code.token(Operator, text);
         } else if (match = code.match(/^[a-zA-Z_$][a-zA-Z0-9_$]*/)) {
             if (KEYWORDS.includes(match[0])) {
                 code.token(Keyword, match[0])
@@ -253,17 +256,14 @@ export function tokenize(code: string | CodeStream): Token[] {
             code.token(LeftBracket);
         } else if (code.eat(']')) {
             code.token(RightBracket);
-        } else if (text = code.eat(OPERATORS)) {
-            // @ts-ignore
-            code.token(Operator, text);
         } else if (code.eat("'")) {
             code.token(StringLiteral, extractString(code, "'"));
         } else if (code.eat('"')) {
             code.token(StringLiteral, extractString(code, '"'));
-        } else if (match = code.match(/^((-?[1-9][0-9]*(\.[0-9]+)?|0b[01]+|0o[0-7]+|0x[0-9A-Fa-f]+))([nfd]|u?[bsil])?/)) {
+        } else if (match = code.match(/^-?((0|[1-9][0-9]*)(\.[0-9]+)?|0b[01]+|0o[0-7]+|0x[0-9A-Fa-f]+)([nfd]|u?[bsil])?/)) {
             code.token(NumberLiteral, match[1], match[2]);
         } else {
-            throw new SyntaxError_('cannot find token', code);
+            throw new SyntaxError_('cannot find token starting at: ' + code.code.slice(code.pos, code.pos + 10), code);
         }
     }
     return code.tokens;

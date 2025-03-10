@@ -4,19 +4,9 @@ import type * as a from './ast';
 import {SyntaxError_} from './tokenizer';
 
 
-export const HEADER = readFileSync('./src/unsure.js');
+const HEADER = readFileSync('./src/unsure.js');
 
-export const UNARY_OP_SYMBOLS = {
-    '+': 's.unary_plus',
-    '-': 's.unary_minus',
-    '++': 's.increment',
-    '--': 's.decrement',
-    '!': 's.not',
-    '~': 's.boolean_not',
-    'typeof': 's.typeof',
-};
-
-export const BINARY_OP_SYMBOLS = {
+const OP_SYMBOLS = {
     '&&': 's.boolean_and',
     '||': 's.boolean_or',
     '^^': 's.boolean_xor',
@@ -40,8 +30,16 @@ export const BINARY_OP_SYMBOLS = {
     'subclassof': 's.is_subclass',
     '!': 's.not',
     '~': 's.boolean_not',
+    '++': 's.increment',
+    '--': 's.decrement',
     'typeof': 's.typeof',
 };
+
+const UNARY_OP_SYMBOLS = {
+    ...OP_SYMBOLS,
+    '+': 's.unary_plus',
+    '-': 's.unary_minus',
+}
 
 
 function compile(ast: a.Node): string {
@@ -66,7 +64,7 @@ function compile(ast: a.Node): string {
     } else if (ast.type === 'UnaryOp') {
         return compile(ast.value) + '[' + UNARY_OP_SYMBOLS[ast.op] + ']()';
     } else if (ast.type === 'BinaryOp') {
-        return compile(ast.left) + '[' + BINARY_OP_SYMBOLS[ast.op] + '](' + compile(ast.right) + ')';
+        return compile(ast.left) + '[' + OP_SYMBOLS[ast.op] + '](' + compile(ast.right) + ')';
     } else if (ast.type === 'TernaryConditional') {
         return compile(ast.test) + '[s.ternary_conditional](' + compile(ast.if_true) + ',' + compile(ast.if_false) + ')';
     } else if (ast.type === 'ExpressionStatement') {
@@ -76,11 +74,13 @@ function compile(ast: a.Node): string {
     } else if (ast.type === 'Assignment') {
         return (ast.declare ? (ast.const ? 'const ' : 'let ') : '') + compile(ast.id) + '=' + compile(ast.value) + ';';
     } else if (ast.type === 'IfStatement') {
-        let out = 'if(' + compile(ast.test) + '[s.to_boolean]()[number_value]){' + ast.body.map(compile).join('\n') + '}';
+        let out = 'if(' + compile(ast.test) + '[s.to_boolean]()[number_value]){' + ast.body.map(compile).join(';') + '}';
         if (ast.orelse.length > 0) {
             out += 'else{' + ast.orelse.map(compile).join('\n') + '}';
         }
         return out;
+    } else if (ast.type === 'ForLoop') {
+        return 'for(' + compile(ast.initial) + compile(ast.test) + '[s.to_boolean]()[number_value];' + compile(ast.loop).slice(0, -1) + '){' + ast.body.map(compile).join(';') + '}';
     } else if (ast.type === 'Argument') {
         if (ast.value === null) {
             throw new SyntaxError_('arguments without a value are only allowed in function definitions', ast);

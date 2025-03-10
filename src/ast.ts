@@ -82,7 +82,7 @@ export let TypedAssignment = createASTFactory<TypedAssignment>('TypedAssignment'
 
 export type IfStatement = CreateASTType<'IfStatement', {test: Expression, body: Statement[], orelse: Statement[]}>;
 export let IfStatement = createASTFactory<IfStatement>('IfStatement', 'test', 'body', 'orelse');
-export type ForLoop = CreateASTType<'ForLoop', {initial: Expression, test: Expression, loop: Expression, body: Statement[]}>;
+export type ForLoop = CreateASTType<'ForLoop', {initial: Statement, test: Expression, loop: Statement, body: Statement[]}>;
 export let ForLoop = createASTFactory<ForLoop>('ForLoop', 'initial', 'test', 'loop', 'body');
 export type WhileLoop = CreateASTType<'WhileLoop', {test: Expression, body: Statement[]}>;
 export let WhileLoop = createASTFactory<WhileLoop>('WhileLoop', 'test', 'body');
@@ -122,31 +122,6 @@ export function parseCall(tokens: t.Token[]): FunctionCall {
     throw new TypeError('function calls are not supported');
 }
 
-export const PRECEDENCE: {[key: string]: number} = {
-    '**': 8,
-    '*': 7,
-    '/': 7,
-    '%': 7,
-    '+': 6,
-    '-': 6,
-    '&': 5,
-    '|': 5,
-    '^': 5,
-    'extends': 3,
-    'instanceof': 3,
-    'subclassof': 3,
-    '==': 2,
-    '!=': 2,
-    '<': 2,
-    '<=': 2,
-    '>': 2,
-    '>=': 2,
-    '&&': 1,
-    '||': 1,
-    '^^': 1,
-};
-
-
 
 function tokenToExpression(token: t.Token | Expression): Expression | null {
     if (token.ast) {
@@ -179,6 +154,14 @@ function tokenToExpression(token: t.Token | Expression): Expression | null {
     } else {
         return null;
     }
+}
+
+function tokenToExpressionWithError(token: t.Token | Expression): Expression {
+    let out = tokenToExpression(token);
+    if (out === null) {
+        throw new SyntaxError_('invalid syntax', token);
+    }
+    return out;
 }
 
 
@@ -232,8 +215,59 @@ function parseSimpleExpressionReplaceCalls(tokens: (t.Token | Expression)[]): (t
     return out;
 }
 
+function parseSimpleExpressionHandleUnary(tokens: (t.Token | Expression)[]): (t.Token | Expression)[] {
+    let out: (t.Token | Expression)[] = [];
+    let wasOperator = true;
+    for (let i = 0; i < tokens.length; i++) {
+        let token = tokens[i];
+        if (token.type === 'Operator') {
+            if (wasOperator) {
+                i++;
+                if (!(token.op === '+' || token.op === '-' || token.op === '++' || token.op === '--' || token.op === '!' || token.op === '~' || token.op === 'typeof')) {
+                    throw new SyntaxError_(`${token.op} is not unary`, token);
+                }
+                out.push(createNode(UnaryOp, [token, tokens[i]], token.op, tokenToExpressionWithError(tokens[i])));
+            } else if (!wasOperator && (token.op === '++' || token.op === '--')) {
+                out[out.length - 1] = createNode(UnaryOp, [out[out.length - 1], token], token.op, tokenToExpressionWithError(out[out.length - 1]));
+            } else {
+                out.push(token);
+            }
+            wasOperator = true;
+        } else {
+            out.push(token);
+            wasOperator = false;
+        }
+    }
+    return out;
+}
+
+const PRECEDENCE: {[key: string]: number} = {
+    '**': 8,
+    '*': 7,
+    '/': 7,
+    '%': 7,
+    '+': 6,
+    '-': 6,
+    '&': 5,
+    '|': 5,
+    '^': 5,
+    'extends': 3,
+    'instanceof': 3,
+    'subclassof': 3,
+    '==': 2,
+    '!=': 2,
+    '<': 2,
+    '<=': 2,
+    '>': 2,
+    '>=': 2,
+    '&&': 1,
+    '||': 1,
+    '^^': 1,
+};
+
 function parseSimpleExpression(tokens: (t.Token | Expression)[]): Expression {
     tokens = parseSimpleExpressionReplaceCalls(tokens);
+    tokens = parseSimpleExpressionHandleUnary(tokens);
     let out: (Expression | t.Operator)[] = [];
     let ops: t.Operator[] = [];
     for (let token of tokens) {
@@ -261,7 +295,7 @@ function parseSimpleExpression(tokens: (t.Token | Expression)[]): Expression {
             if (left === null || right === null) {
                 throw new SyntaxError_('invalid expression', token);
             }
-            left = createNode(BinaryOp, token, token.op, left, right);
+            left = createNode(BinaryOp, [left, token, right], token.op, left, right);
             continue;
         }
         if (left === null) {
@@ -357,10 +391,45 @@ function parseAssignment(tokens: TokenList<t.Keyword<'let' | 'const'> | t.Identi
     }
 }
 
+function extractForLoopExpressions(tokens: t.Token[], startIndex: number = 0): [Statement, Expression, Statement, number] {
+    let parenCount = 0;
+    let out: (Expression | Statement)[] = [];
+    let buffer: t.Token[] = [];
+    for (let i = startIndex; i < tokens.length; i++) {
+        let token = tokens[i];
+        if (token.type === 'Space' || token.type === 'Newline') {
+            continue;
+        } else if (token.type === 'Semicolon' && parenCount === 0) {
+            out.push(out.length === 1 ? parseExpression(buffer)[0] : parseStatement(buffer));
+            buffer = [];
+        } else {
+            if (token.type === 'LeftParen') {
+                parenCount++;
+            } else if (token.type === 'RightParen') {
+                parenCount--;
+                if (parenCount < 0) {
+                    out.push(parseStatement(buffer));
+                    if (out.length !== 3 ) {
+                        throw new SyntaxError_('for statement must be followed by 3 sections', tokens[0]);
+                    }
+                    return [out[0] as Statement, out[1] as Expression, out[2] as Statement, i];
+                }
+            }
+            buffer.push(token);
+        }
+    }
+    if (out.length !== 3) {
+        throw new SyntaxError_('for statement must be followed by 3 sections', tokens[0]);
+    }
+    return [out[0] as Statement, out[1] as Expression, out[2] as Statement, tokens.length];
+}
+
 function parseStatement(tokens: t.Token[]): Statement {
     if (tokens[0].type === 'Keyword') {
         let keyword = tokens[0].name;
-        if (keyword === 'if') {
+        if (keyword === 'let' || keyword === 'const') {
+            return parseAssignment(tokens as TokenList<t.Keyword<'let' | 'const'>>);
+        } else if (keyword === 'if') {
             if (tokens[1].type !== 'LeftParen') {
                 throw new SyntaxError_('expected expression after if keyword', tokens[1]);
             }
@@ -369,11 +438,12 @@ function parseStatement(tokens: t.Token[]): Statement {
                 throw new SyntaxError_('expected block after if keyword', tokens[len]);
             }
             let [body, len2] = parseCodeBlock(tokens, len + 2);
-            if (tokens[len2].type === 'Keyword' && tokens[len2].name === 'else') {
-                if (tokens[len2 + 1].type !== 'LeftBrace') {
-                    throw new SyntaxError_('expected block after else keyword', tokens[len2 + 1]);
+            let token = tokens[len2 + 1];
+            if (token !== undefined && token.type === 'Keyword' && token.name === 'else') {
+                if (tokens[len2 + 2].type !== 'LeftBrace') {
+                    throw new SyntaxError_('expected block after else keyword', token);
                 }
-                let [orelse, len3] = parseCodeBlock(tokens, len2 + 2);
+                let [orelse, len3] = parseCodeBlock(tokens, len2 + 3);
                 if (len3 !== tokens.length - 1) {
                     throw new SyntaxError_('expected semicolon', tokens[len3]);
                 }
@@ -381,8 +451,19 @@ function parseStatement(tokens: t.Token[]): Statement {
             } else {
                 return createNode(IfStatement, tokens, test, body, []);
             }
-        } else if (keyword === 'let' || keyword === 'const') {
-            return parseAssignment(tokens as TokenList<t.Keyword<'let' | 'const'>>);
+        } else if (keyword === 'for') {
+            if (tokens[1].type !== 'LeftParen') {
+                throw new SyntaxError_('expected expression after fir keyword', tokens[1]);
+            }
+            let [initial, test, loop, len] = extractForLoopExpressions(tokens, 2);
+            if (tokens[len + 1].type !== 'LeftBrace') {
+                throw new SyntaxError_('expected block after if keyword', tokens[len]);
+            }
+            let [body, len2] = parseCodeBlock(tokens, len + 2);
+            if (len2 !== tokens.length - 1) {
+                throw new SyntaxError_('expected semicolon', tokens[len2]);
+            }
+            return createNode(ForLoop, tokens, initial, test, loop, body);;
         } else {
             throw new SyntaxError_(`${keyword} does not have an assigned meaning`, tokens[0]);
         }
@@ -418,7 +499,7 @@ function parseCodeBlock(tokens: t.Token[], startIndex: number = 0, endAtBrace: b
         let token = tokens[i];
         if (token.type === 'Space' || token.type === 'Newline') {
             continue;
-        } else if (token.type === 'Semicolon' && braceCount === 0) {
+        } else if (token.type === 'Semicolon' && braceCount === 0 && parenCount === 0) {
             out.push(parseStatement(buffer));
             buffer = [];
         } else {
@@ -430,8 +511,16 @@ function parseCodeBlock(tokens: t.Token[], startIndex: number = 0, endAtBrace: b
             } else if (token.type === 'RightBrace') {
                 braceCount--;
                 if (braceCount === 0 && parenCount === 0) {
-                    out.push(parseStatement(buffer));
-                    buffer = [];
+                    let j = 1;
+                    let nextToken = tokens[i + j];
+                    while (nextToken !== undefined && (nextToken.type === 'Space' || nextToken.type === 'Newline')) {
+                        j++
+                        nextToken = tokens[i + j];
+                    }
+                    if (!(nextToken !== undefined && nextToken.type === 'Keyword' && nextToken.name == 'else')) {
+                        out.push(parseStatement(buffer));
+                        buffer = [];
+                    }
                 }
                 if (braceCount < 0) {
                     if (endAtBrace) {
@@ -452,7 +541,7 @@ function parseCodeBlock(tokens: t.Token[], startIndex: number = 0, endAtBrace: b
 }
 
 export function tokensToAST(tokens: t.Token[]): Program {
-    return createNode(Program, tokens, parseCodeBlock(tokens)[0]);
+    return createNode(Program, tokens, parseCodeBlock(tokens, 0, false)[0]);
 }
 
 

@@ -285,10 +285,12 @@ let $number = createClass($any, 'number', {
         return this[s.type_of]()[s.call](this[get_number]() - other[get_number]());
     },
     [s.increment]() {
-        return this[s.type_of]()[s.call](this[get_number]()++);
+        this[set_number](this[get_number]() + 1);
+        return this;
     },
     [s.decrement]() {
-        return this[s.type_of]()[s.call](this[get_number]()--);
+        this[set_number](this[get_number]() - 1);
+        return this;
     },
     [s.unary_plus]() {
         return this[s.type_of]()[s.call](+this[get_number]());
@@ -417,6 +419,14 @@ let $bigint = createSubclass($number, 'bigint', {
     },
     [set_number](value) {
         this[number_value] = value;
+    },
+    [s.increment]() {
+        this[set_number](this[get_number]() + 1n);
+        return this;
+    },
+    [s.decrement]() {
+        this[set_number](this[get_number]() - 1n);
+        return this;
     },
 });
 let bigint = $bigint[s.call].bind($bigint);
