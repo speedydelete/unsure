@@ -453,17 +453,30 @@ function parseStatement(tokens: t.Token[]): Statement {
             }
         } else if (keyword === 'for') {
             if (tokens[1].type !== 'LeftParen') {
-                throw new SyntaxError_('expected expression after fir keyword', tokens[1]);
+                throw new SyntaxError_('expected expression after for keyword', tokens[1]);
             }
             let [initial, test, loop, len] = extractForLoopExpressions(tokens, 2);
             if (tokens[len + 1].type !== 'LeftBrace') {
-                throw new SyntaxError_('expected block after if keyword', tokens[len]);
+                throw new SyntaxError_('expected block after for keyword', tokens[len]);
             }
             let [body, len2] = parseCodeBlock(tokens, len + 2);
             if (len2 !== tokens.length - 1) {
                 throw new SyntaxError_('expected semicolon', tokens[len2]);
             }
-            return createNode(ForLoop, tokens, initial, test, loop, body);;
+            return createNode(ForLoop, tokens, initial, test, loop, body);
+        } else if (keyword === 'while') {
+            if (tokens[1].type !== 'LeftParen') {
+                throw new SyntaxError_('expected expression after while keyword', tokens[1]);
+            }
+            let [test, len] = parseExpression(tokens, 2, true);
+            if (tokens[len + 1].type !== 'LeftBrace') {
+                throw new SyntaxError_('expected block after while keyword', tokens[len]);
+            }
+            let [body, len2] = parseCodeBlock(tokens, len + 2);
+            if (len2 !== tokens.length - 1) {
+                throw new SyntaxError_('expected semicolon', tokens[len2]);
+            }
+            return createNode(WhileLoop, tokens, test, body);
         } else {
             throw new SyntaxError_(`${keyword} does not have an assigned meaning`, tokens[0]);
         }

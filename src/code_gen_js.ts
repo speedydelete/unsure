@@ -86,6 +86,8 @@ function compile(ast: a.Node): string {
             throw new SyntaxError_('arguments without a value are only allowed in function definitions', ast);
         }
         return compile(ast.value);
+    } else if (ast.type === 'WhileLoop') {
+        return 'while(' + compile(ast.test) + '[s.to_boolean]()[number_value]){' + ast.body.map(compile).join(';') + '}';
     } else if (ast.type === 'FunctionCall') {
         return compile(ast.func) + '(' + ast.args.map(compile).join(',') + ')';
     } else {
